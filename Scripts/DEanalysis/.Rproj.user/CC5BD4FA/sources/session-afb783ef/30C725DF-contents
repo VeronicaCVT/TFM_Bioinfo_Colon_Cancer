@@ -1,0 +1,451 @@
+---
+title: "Resolución Actividad 2 máster Bioinformática UNIR (2025)"
+author: "Verónica Cabeza de Vaca Tocino"
+date: "2025-12-09"
+output: 
+  prettydoc::html_pretty:
+    theme: cayman
+    toc: yes
+
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **Configuración del Entorno y Carga de Datos**
+
+### **Carga de librerías**
+
+Este *script* funciona con base en las siguientes librerías, las cuales deben estar instaladas para su puesta en marcha:
+
+```{r librerías, message=FALSE, warning=FALSE}
+library(prettydoc)
+library(dplyr)
+library(stats)
+library(car)
+library(nortest)   
+library(gtsummary)
+library(ggplot2)   
+library(patchwork) 
+library(flextable)
+library(gt) 
+```
+
+
+### **Importación de datos**
+
+```{r datos}
+datos <- read.csv("MUBioinfo_dataset_genes_oct2025.csv")
+```
+
+Se procede a la importación del *dataset* de la actividad mediante este comando, asignando los datos a la variable `datos`.
+
+#### **Revisión de la estructura de los datos**
+
+Para empezar, se examina la estructura global de los datos, confirmando la correcta lectura por el entorno R.
+
+```{r estructura1 datos}
+str(datos) 
+```
+
+Al ejecutar el comando `str(datos)` se muestra en la consola la estructura interna del *data frame* en estudio de forma compacta. No solo se listan todas las variables, sino también su clase y los diez primeros valores de cada una. Esto es de utilidad para determinar a qué columnas se les ha asignado una clase incorrecta y, en consecuencia, cambiarla; como sucede con las variables identificadas como texto. La conversión de dichas variables a categóricas se lleva a cabo con el código mostrado a continuación: 
+
+```{r estructura2 datos}
+datos <- datos %>%
+  mutate(across(where(is.character), as.factor))
+```
+
+También es beneficioso verificar la integridad de los datos. Para ello, se confirma la ausencia de valores ausentes ejecutando el siguiente comando:
+
+```{r estructura3 datos}
+sum(colSums(is.na(datos)))
+```
+
+## **Actividades**
+
+### **1. Análisis de Normalidad**
+
+#### **Prueba estadística: test de Anderson-Darling**
+
+```{r actividad_1a}
+lista_genes <- c("AQ_actb", "AQ_gapdh", "AQ_b2m", "AQ_rpl13a", "AQ_hprt1", "AQ_vegfa", "AQ_il6", "AQ_tnf", "AQ_egfr", "AQ_cxcl8", "AQ_esr1", "AQ_her2", "AQ_brca1", "AQ_brca2", "AQ_mki67", "AQ_gata3", "AQ_foxa1", "AQ_ccnd1", "AQ_cdh1", "AQ_tp53", "AQ_mmp9", "AQ_pten", "AQ_myc", "AQ_kras", "AQ_akt1", "AQ_cdkn2a", "AQ_pdcd1", "AQ_ctla4", "AQ_hlaa", "AQ_casp3")
+
+analisis_normalidad_genes <- list()
+
+genes_pvalue <- data.frame(Genes = lista_genes,
+                           p.value = NA,
+                           row.names = TRUE)
+ 
+for (gen in lista_genes) {
+  analisis_normalidad_genes[[gen]] <- ad.test(datos[[gen]])
+  genes_pvalue[gen,] <- analisis_normalidad_genes[[gen]]$p.value
+  }
+```
+
+En este bloque de código se generan diversos objetos. En primer lugar, se establece la variable `lista_genes` el cual es un vector que contiene el nombre de todos los genes incluidos en el *data frame* original. Además, se crea una lista vacía (`analisis_normalidad_genes`) que almacenará el resultado del test de normalidad para cada variable. Por último, se define un nuevo *data frame* vacío pero a cuyas filas se les ha asignado el nombre de los genes en estudio. Es esta variable la que contendrá los p-valor del test de normalidad de todos los genes.
+
+Como se ha adelantado, el objetivo del bucle es recorrer las variables asociadas a los genes, realizar el test de normalidad (**Anderson-Darling test**), extraer el p-valor de la lista de clase *htest* resultante del test e incluirlo en el *data frame* denominado `genes_pvalue`.
+
+```{r actividad_1b}
+genes_pvalue_vector <- genes_pvalue$p.value
+```
+
+Es necesario convertir el *data frame* de los p-valores en un vector para la creación de la Tabla Modelo 1.
+
+
+#### **Tabla Modelo 1**
+
+```{r tabla_modelo1}
+tabla_normalidad <- data.frame(row.names = NULL,
+  Variable = lista_genes,
+  Test_utilizado = "Anderson-Darling test",
+  Valor_p = format(genes_pvalue_vector, scientific = TRUE, digits = 3),
+  Interpretación = ifelse(genes_pvalue <= 0.05, "No normal", "Compatible con normalidad"))
+
+colnames(tabla_normalidad) <- c("Variable", "Test utilizado", "Valor p", "Interpretación")
+
+tabla_modelo1 <- flextable(tabla_normalidad) %>%
+  theme_booktabs() %>%
+  align(part = "header", align = "center")  %>%
+  width(j = "Variable", width = 0.8) %>% 
+  width(j = "Test utilizado", width = 1.9) %>% 
+  width(j = "Valor p", width = 1.0) %>% 
+  width(j = "Interpretación", width = 1.2) %>% 
+  bold(part = "header") %>%
+  align(align = "center", part = "body") %>%
+  align(align = "left", j = "Variable", part = "body") %>% 
+  add_header_lines(value = "Tabla Modelo 1. Resultados de Normalidad") %>%
+  add_footer_lines(value = "Notas: El p-valor evalúa si la distribución de cada gen es normal. p < 0.05 indica que la distribución no es normal.")
+```
+
+Para la generación de la **Tabla Modelo 1** se ha creado un nuevo dataframe que contiene cuatro columnas: "Variable", "Test_utilizado", "Valor_p", "Interpretación". A estas columnas se les asigna los valores correspondientes. Asimismo, se modifican los nombres de las columnas para que aquellas que contengan guiones bajos se observen en la tabla sin estos; es decir, que se muestre "Test utilizado" y "Valor p" en vez de "Test_utilizado" y "Valor_p".
+
+A continuación, empleando la función `flextable()` se configura el formato de la tabla. Para obtener una tabla idéntica al modelo proporcionado se modifca el estilo visual, el alineamiento y la anchura de las columnas, y se añade el título y las notas al pie de la tabla.
+
+
+#### **Visualización de la normalidad: Histograma**
+
+```{r histograma, warning=FALSE, fig.width=10, fig.height=10}
+histogramas <- list()
+i <- 1
+
+for(gen in lista_genes) {
+  datos_gen <- datos[[gen]]
+  h <- ggplot(datos,
+                aes_string(x = gen))    + 
+    geom_histogram(aes(y = after_stat(density)),  
+                   bins = 15,
+                   fill = "lightblue",
+                   color = "black",
+                   alpha = 0.7)        +
+    stat_function(fun = dnorm, 
+                  args = list(mean = mean(datos[[gen]]), sd = sd(datos[[gen]])), 
+                  color = "red", 
+                  linewidth = 1)       +
+    geom_density(color = "blue",           
+                 size = 1)             +  
+    labs(title = paste("Histograma de", gen),
+         subtitle = paste("p-value=", format(genes_pvalue[gen,], scientific = TRUE, digits = 3)),
+         x = "Nivel de Expresión",
+         y = "Densidad")               +
+    theme_minimal()                    +
+    theme(plot.title = element_text(hjust = 0.5,
+                                    size = 10,
+                                    face = "bold"),
+          plot.subtitle = element_text(hjust = 0.5,
+                                       size = 9),
+          axis.title = element_text(size = 8),
+          axis.text = element_text(size = 8))
+  histogramas[[i]] <- h
+  i <- i+1
+}
+
+grafico_final_histograma <- patchwork::wrap_plots(histogramas, 
+                                                  ncol = 5,
+                                                  mrow = 6)
+print(grafico_final_histograma)
+```
+
+El histograma, cuando se analiza junto con la curva de densidad (en azul) y la línea de la curva normal teórica (en rojo), resulta de gran utilidad para inspeccionar la normalidad de los datos. Si bien no es posible descartar la normalidad mediante la visualización de un histograma, sí que da una idea de la estructura global de los datos; pudiendo sugerir o no la normalidad.
+
+La visualización del conjunto de histogramas generados con el bucle proporciona un indicio de la no normalidad de los datos. Esto se deduce por la mayor densidad de datos en los extremos de la distribución y la escasez de los mismos en la región intermedia; formando en ocasiones una estructura similar a una campana de Gauss invertida (lo opuesto a la normalidad). Además, se observa que la curva de densidad difiere notoriamente con la línea de la curva normal teórica, hallazgo que también sugiere la no normalidad de los datos
+
+#### **Interpretación de resultados**
+
+```{r tabla_modelo1_explicacion, echo=FALSE}
+tabla_modelo1
+```
+
+El análisis de la distribución de estas variables, correspondientes a los niveles de expresión de los genes estudiados, revela una desviación sistemática y significativa de la normalidad. Tal como se presenta en la Tabla Modelo 1, se aplicó el test de Anderson-Darling, seleccionado por su mayor potencia estadística en muestras superiores a 30 observaciones y su sensibilidad a la hora de detectar desviaciones en las colas de la distribución.
+
+Los resultados numéricos son contundentes: todas las variables analizadas presentan un valor p extremadamente bajo. Al ser estos valores significativamente inferiores al nivel de significancia establecido ($\alpha = 0.05$), se rechaza la hipótesis nula de normalidad para la totalidad del conjunto de genes. La columna de "Interpretación" confirma que ninguna de las variables sigue una distribución gaussiana. Asimismo, esta conclusión estadística coincide con los hallazgos obtenidos del análisis de los histogramas
+
+En consecuencia, dada la clara naturaleza no paramétrica de estas variables, no es aconsejable utilizar la media y la desviación estándar para exponer sus estadísticas descriptivas. Por lo tanto, se procederá a utilizar la mediana y el rango intercuartílico (RIQ) como medidas de tendencia central y dispersión.
+
+
+### **2. Análisis Descriptivo Bivariante: Tratamiento y Extensión Tumoral**
+
+#### **Clasificación de las Variables**
+
+Para el análisis estadístico descriptivo se segregan las variables en diferentes vectores según la clase de sus datos. Por un lado, se listan las variables categóricas (relacionadas con síntomas y rasgos sociodemográficos) y, por otro, las numéricas (edad, características bioquímicas y expresión génica). 
+
+```{r actividad_2a}
+lista_categoricas <- datos %>%
+  select(where(is.factor)) %>%
+  names()
+
+lista_bioquimica <- datos %>%
+  select("glucosa":"calidad_mental") %>%
+  names()
+
+lista_numericas <- c("edad", lista_bioquimica, lista_genes)
+```
+
+Para dividir la lista de variables numéricas en paramétricas o no paramétricas, se recicla el código del primer ejercicio para determinar el p-valor del test de normalidad seleccionado. El *data frame* resultante se filtra comparando el p-valor con el nivel de significancia establecido; de manera que si el p-valor es menor, la variable se incluye en `lista_no_parametricas`, y si el p-valor es mayor, se incluye en `lista_parametricas`.
+
+```{r actividad_2b}
+analisis_normalidad <- list()
+
+numericas_pvalue <- data.frame(Variables = lista_numericas,
+                               p.value = NA,
+                               row.names = TRUE)
+
+for (variable in lista_numericas) {
+  analisis_normalidad[[variable]] <- ad.test(datos[[variable]])
+  numericas_pvalue[variable,] <- analisis_normalidad[[variable]]$p.value
+}
+
+lista_no_parametricas <- numericas_pvalue %>%
+  filter(p.value <= 0.05) %>%
+  rownames()
+
+lista_parametricas <- numericas_pvalue %>%
+  filter(p.value > 0.05) %>%
+  rownames()
+```
+
+
+#### **Análisis Descriptivo de las Variables**
+
+Una vez clasificadas las variables, se procede al análisis descriptivo de las mismas.
+
+Se construyen tres tablas, una para cada clase de datos: `lista_categoricas`, `lista_no_parametricas` y `lista_parametricas`. 
+
+##### **Análisis Descriptivo de las Variables Categóricas**
+
+```{r actividad_2c1}
+datos %>%
+  select(any_of(lista_categoricas)) %>% # 
+  tbl_summary(
+    type = all_continuous() ~ "continuous2",
+    statistic = all_continuous() ~ c("{mean} ({sd})", "{median} ({p25}, {p75})", "{min}, {max}")
+  )
+```
+
+##### **Análisis Descriptivo de las Variables No Paramétricas**
+
+```{r actividad_2c2}
+datos %>%
+  select(any_of(lista_no_parametricas)) %>% 
+  tbl_summary(
+    type = all_continuous() ~ "continuous2",
+    statistic = all_continuous() ~ c("{mean} ({sd})", "{median} ({p25}, {p75})", "{min}, {max}"))
+```
+
+##### **Análisis Descriptivo de las Variables Paramétricas**
+
+```{r actividad_2c3}
+datos %>%
+  select(any_of(lista_parametricas)) %>% 
+  tbl_summary(
+    type = all_continuous() ~ "continuous2",
+    statistic = all_continuous() ~ c("{mean} ({sd})", "{median} ({p25}, {p75})", "{min}, {max}"))
+```
+
+
+#### **Tabla Modelo 2** 
+
+```{r tabla_modelo2}
+tabla_modelo2 <- datos %>%
+  mutate(
+    tratamiento = factor(tratamiento, 
+                         levels = c("placebo", "farmaco"), 
+                         labels = c("Placebo", "Fármaco")), 
+    extension = factor(extension,
+                       levels = c("localizado", "metastasico"), 
+                       labels = c("Localizado", "Metastásico"))) %>%
+  select(tratamiento, extension, starts_with("AQ_")) %>% 
+  tbl_strata(
+    strata = tratamiento,
+    .tbl_fun = ~ .x %>%
+      tbl_summary(
+        by = extension, 
+        statistic = all_continuous() ~ "{median} ({p25}, {p75})", 
+        digits = all_continuous() ~ 2) %>%
+      add_p(
+        test = all_continuous() ~ "kruskal.test",
+        pvalue_fun = ~ style_pvalue(.x, digits = 3)) %>%
+      modify_header(     
+        label = "**Variable**",
+        all_stat_cols() ~ "**{level}** (N = {n})<br>P50 (RIQ)")) %>%
+  bold_labels() %>% 
+  as_gt() %>%
+  gt::cols_width(
+    label ~ gt::px(85), 
+    matches("p.value") ~ gt::px(75),
+    everything() ~ gt::px(165))
+```
+
+Para la generación de la **Tabla Modelo 2**, se comienza modificando el *data frame*, añadiendo etiquetas a los niveles de las variables categóricas `tratamiento` y `extension`. Este ajuste es necesario para asegurar la correcta presentación de los nombres de las columnas en la tabla final. 
+
+Seguidamente, se seleccionan las columnas de interés, incluyendo las variables de agrupación y los genes (identificados mediante el prefijo "AQ_").
+
+El análisis se estructura mediante la función `tbl_strata()`, estratificando la muestra según el grupo de **tratamiento**. Dentro de cada estrato, se aplica `tbl_summary()` agrupando por la **extensión** de la enfermedad. Dada la naturaleza no paramétrica de los datos, se reportan la mediana y el rango intercuartílico (P25, P75) con dos decimales.
+
+Adicionalmente, se incorpora el análisis estadístico mediante `add_p()`, aplicando el **test de Kruskal-Wallis** para las variables continuas, es decir, los genes. Se personalizan los encabezados con `modify_header()` para mostrar la etiqueta "Variable", así como el nivel del grupo, el tamaño muestral (N) y el estadístico empleado en cada columna. Finalmente, para ajustar la estética al formato deseado, se resaltan las etiquetas en negrita y se transforma el objeto a formato `gt`, definiendo anchuras específicas en píxeles para cada columna.
+
+```{r tabla_extra_modelo2, eval=FALSE, echo=FALSE}
+tabla_extra_modelo2 <- datos %>%
+  mutate(
+    tratamiento = factor(tratamiento, 
+                         levels = c("placebo", "farmaco"), 
+                         labels = c("Placebo", "Fármaco")), 
+    extension = factor(extension,
+                       levels = c("localizado", "metastasico"), 
+                       labels = c("Localizado", "Metastásico"))) %>%
+  select(tratamiento, extension, starts_with("AQ_")) %>% 
+  tbl_strata(
+    strata = tratamiento,
+    .tbl_fun = ~ .x %>%
+      tbl_summary(
+        by = extension, 
+        statistic = all_continuous() ~ "{median} ({p25}, {p75})", 
+        digits = all_continuous() ~ 2) %>%
+      add_p(
+        test = all_continuous() ~ "kruskal.test",
+        pvalue_fun = ~ style_pvalue(.x, digits = 3)) %>%
+      modify_table_body(      # Se filtra el cuerpo de la tabla según el p-valor
+        ~ .x %>%
+          filter(p.value < 0.05)) %>%
+      modify_header(     
+        label = "**Variable**",
+        all_stat_cols() ~ "**{level}** (N = {n})<br>P50 (RIQ)")) %>%
+  bold_labels() %>% 
+  as_gt() %>%
+  gt::cols_width(
+    label ~ gt::px(85), 
+    matches("p.value") ~ gt::px(75),
+    everything() ~ gt::px(165))
+tabla_extra_modelo2
+```
+
+#### **Interpretación de resultados**
+
+```{r tabla_modelo2_explicacion, echo=FALSE}
+tabla_modelo2
+```
+
+Como se aprecia en la Tabla Modelo 2, se ha realizado un análisis comparativo de los niveles de expresión génica en función de la extensión del tumor (Localizado vs. Metastásico), estratificando los resultados por el tipo de tratamiento recibido (Placebo vs. Fármaco). Dado el hallazgo previo de no normalidad en los datos, se empleó la prueba no paramétrica de Kruskal-Wallis para evaluar las diferencias.
+
+Al inspeccionar el estrato del **Placebo**, se observa que la expresión de la totalidad de los genes difiere notoriamente entre los pacientes con tumor localizado y aquellos con metástasis. Se deduce, por los valores de la mediana, que el grupo metastásico presenta niveles de expresión drásticamente superiores (pasando de valores cercanos a 0.05 a rangos de 0.50 e incluso 1.00 en genes como AQ_esr1), resultando en diferencias estadísticamente significativas (p<0.001). Esto sugiere que, en ausencia de tratamiento activo, la progresión a metástasis conlleva una sobreexpresión generalizada de estos marcadores.
+
+Por el contrario, en el grupo **Fármaco**, la estructura de los datos cambia sustancialmente para un conjunto específico de genes. Si bien la mayoría de genes se mantienen inalterados (manteniendo sus diferencias o similitudes entre grupos), se identifica un bloque de genes de interés (AQ_esr1, AQ_her2, AQ_brca1, AQ_brca2, AQ_mki67, AQ_ccnd1, AQ_cdh1 y AQ_tp53). En estos marcadores, el p-valor pierde su significancia estadística (p > 0.05) debido a un descenso generalizado y contundente de la expresión génica. Se observa que el tratamiento inhibe eficazmente la expresión de estos genes tanto en los pacientes "Localizados" como en los "Metastásicos", reduciendo las medianas a valores mínimos (~0.05) en ambos subgrupos. Esto indica que el fármaco anula la sobreexpresión propia del cáncer independientemente de su extensión, igualando a la baja a todos los pacientes.
+
+### **3. Análisis Descriptivo Bivariante: Categorización por Edad**
+
+#### **Categorización de la variable edad** 
+
+La construcción de la siguiente tabla requiere de la creación de una nueva variable en `datos`. Dicha variable es originada a partir de la transformación de la variable numérica `edad` en una variable categórica dicotómica (`categoria_edad`).
+
+Esta recodificación se lleva a cabo mediante la función `cut()` dentro de `mutate()`, estableciendo los puntos de corte en función de la mediana de la distribución. De esta manera, se segmenta la muestra en dos grupos: aquellos valores situados por debajo o en el límite de la mediana (etiquetados como "<P50") y aquellos que la superan (etiquetados como ">P50").
+
+Finalmente, se verifica la estructura y la correcta creación del nuevo factor mediante el comando `str()`.
+
+```{r actividad3}
+
+datos <- datos %>%
+  mutate(
+    categoria_edad = cut(
+      edad,
+      breaks = c(-Inf, median(edad), Inf),
+      labels = c("<P50", ">P50"),
+      right = TRUE)  )
+
+str(datos$categoria_edad)
+
+```
+
+#### **Tabla Modelo 3**
+
+```{r tabla_modelo3}
+
+tabla_modelo3 <- datos %>%
+  select(categoria_edad, starts_with("AQ_")) %>%
+  tbl_summary(
+    by = categoria_edad,
+    statistic = all_continuous() ~ "{median} ({p25}, {p75})",
+    digits = all_continuous() ~ 2
+  ) %>%
+  add_p() %>% 
+  modify_header(
+    label = "**Variable**",
+    all_stat_cols() ~ "**{level}** (N = {n})<br>P50 (RIQ)" 
+  ) %>%
+  bold_labels() %>%
+  as_gt() %>%
+  gt::cols_width(
+    label ~ gt::px(120), 
+    matches("stat_") ~ gt::px(150),
+    p.value ~ gt::px(80)
+  )
+```
+
+La creación de la **Tabla Modelo 3** es muy similar a la de la Tabla Modelo 2. En primer lugar, se seleccionan las variables de interés del conjunto de datos; es decir, la variable de agrupación `categoria_edad` y aquellas correspondientes a la expresión génica (identificadas con el prefijo "AQ_").
+
+La tabla descriptiva se genera mediante la función `tbl_summary()`, estratificando los datos según la variable `categoría_edad`. En consonancia con el análisis previo, se reportan la mediana y el rango intercuartílico como medidas de resumen, con una precisión de dos decimales. Posteriormente, se incorpora el análisis de significancia estadística entre los grupos de edad mediante la función `add_p()`, la cual sin argumentos asume el **test de Wilcox** al ser las variables continuas y presentar dos niveles ("<P50" y ">P50").
+
+Además, se personalizan los encabezados con `modify_header()` y se aplica el formato de negrita. Finalmente, se ajusta la presentación visual transformando el objeto a gt, definiendo anchos específicos en píxeles para la etiqueta, las columnas estadísticas y el valor p.
+
+#### **Interpretación de resultados**
+
+```{r tabla_modelo3_explicacion, echo=FALSE}
+tabla_modelo3
+```
+
+Al analizar la **Tabla Modelo 3** se observa que la edad no parece ejercer una influencia determinante en la expresión de la gran mayoría de los genes estudiados.
+
+Al aplicar el test de Wilcoxon se evidencia que, para casi la totalidad de los biomarcadores, los p-valores superan el umbral de significancia (p > 0.05). Esto indica que los niveles de expresión génica son estadísticamente equivalentes entre los pacientes más jóvenes y los de mayor edad.
+
+```{r tabla_extra_modelo3, echo=FALSE}
+tabla_extra_modelo3 <- datos %>%
+  select(categoria_edad, starts_with("AQ_")) %>%
+  tbl_summary(
+    by = categoria_edad,
+    statistic = all_continuous() ~ "{median} ({p25}, {p75})",
+    digits = all_continuous() ~ 2
+  ) %>%
+  add_p() %>%
+  modify_table_body(      # Se filtra el cuerpo de la tabla según el p-valor
+    ~ .x %>%
+      filter(p.value < 0.05)
+  ) %>%
+  modify_header(
+    label = "**Variable**",
+    all_stat_cols() ~ "**{level}** (N = {n})<br>P50 (RIQ)" 
+  ) %>%
+  bold_labels() %>%
+  as_gt() %>%
+gt::cols_width(
+    label ~ gt::px(120), 
+    matches("stat_") ~ gt::px(150),
+    p.value ~ gt::px(80)
+  )
+
+tabla_extra_modelo3
+```
+
+No obstante, se identifican dos excepciones puntuales. Por un lado, el gen **AQ_pten** muestra una diferencia estadísticamente significativa (p = 0.046). Si bien las medianas de este gen son idénticas (0.05), la distribución de los rangos difiere entre ambos grupos; siendo el PTEN menos expresado en personas adultas. Por otro lado, el hallazgo más relevante corresponde al gen **AQ_casp3**, el cual presenta una diferencia altamente significativa (p = 0.002). En este caso, se aprecia que los pacientes del grupo más joven (<P50) exhiben una mediana de expresión y un rango superior (0.06 [0.05, 0.22]) en comparación con el grupo de mayor edad (0.04 [0.02, 0.13]). Este hallazgo permite plantear que el envejecimiento biológico actuaría como un factor de modulación negativa sobre dicho marcador, sugiriendo una tendencia a la disminución progresiva de su expresión conforme avanza la edad de los sujetos.
+

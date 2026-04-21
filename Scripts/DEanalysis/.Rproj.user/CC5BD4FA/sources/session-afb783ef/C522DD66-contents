@@ -1,0 +1,447 @@
+##############################################################################
+#
+#   title: "EXAMEN ALGORITMOS E INTELIGENCIA ARTIFICIAL"
+#   author: "Verónica Cabeza de Vaca Tocino"
+#   date: "2026-02-25"
+#
+##############################################################################
+
+
+## **2. Preparación de Entorno y Carga de Datos** ####
+
+### **2.1. Ambiente y Librerías de Trabajo** ####
+
+setwd("C:/Users/verit/Documents/MASTER BIOINFORMATICA/1º Cuatri/Algoritmos e Inteligencia Artificial/SCRIPTS PARA EXAMEN/EXAMEN/EXAMEN")
+
+rm(list = ls())
+gc()
+
+packs_core <- c(
+  "ggplot2", "dplyr", "tidyverse", "gridExtra", "earth", "stringr",
+  "cluster", "factoextra", "ggdendro", "pheatmap", "naivebayes",
+  "caret", "glmnet", "MASS", "klaR", "rpart", "rpart.plot", "plotly",
+  "pROC", "PRROC", "randomForest", "gbm", "nnet", "neuralnet",
+  "Rdimtools", "RDRToolbox", "Rtsne", "uwot", "ica", "xgboost"
+)
+
+for(pkg in packs_core) {
+  if(!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, quiet = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+lapply(packs_core, library, character.only = TRUE)
+
+set.seed(2002)
+
+
+### **2.2. Carga y Preprocesamiento de los Datos** ####
+
+#### DATOS SENCILLOS DE IMPORTAR ####
+
+data <- read.csv("chronic_kidney_disease.csv", header = TRUE, sep= ";")
+ 
+#### VISUALIZACIÓN PRELIMINAR ####
+
+head(data)      
+str(data)       
+summary(data)   
+table(data$classification)                    
+
+columnas_num <- colnames(data[, sapply(data, is.numeric)])
+
+
+histogramas <- list()
+i <- 1
+
+for(variable in columnas_num) {
+  datos_gen <- data[[variable]]
+  h <- ggplot(data,
+              aes_string(x = variable))    + 
+    geom_histogram(aes(y = after_stat(density)),  
+                   bins = 15,
+                   fill = "lightblue",
+                   color = "black",
+                   alpha = 0.7)        +
+    stat_function(fun = dnorm, 
+                  args = list(mean = mean(data[[variable]]), sd = sd(data[[variable]])), 
+                  color = "red", 
+                  linewidth = 1)       +
+    geom_density(color = "blue",           
+                 size = 1)             +  
+    labs(title = paste("Histograma de", variable),
+         y = "Densidad")               +
+    theme_minimal()                    +
+    theme(plot.title = element_text(hjust = 0.5,
+                                    size = 10,
+                                    face = "bold"),
+          plot.subtitle = element_text(hjust = 0.5,
+                                       size = 9),
+          axis.title = element_text(size = 8),
+          axis.text = element_text(size = 8))
+  histogramas[[i]] <- h
+  i <- i+1
+}
+
+grafico_final_histograma <- patchwork::wrap_plots(histogramas, 
+                                                  ncol = 2,
+                                                  mrow = 7)
+print(grafico_final_histograma)
+
+#### PREPROCESAMIENTO 1 - Conversión a variables categóricas (Factores) ####
+
+data$pcv <- as.numeric(data$pcv)
+data$wc <- as.numeric(data$wc)
+data$rc <- as.numeric(data$rc)
+
+data <- data %>% mutate_if(is.character, as.factor) 
+
+levels(data$classification)                      
+data$classification <- factor(data$classification, levels = c("notckd", "ckd")) 
+
+str(data)       
+summary(data)   
+
+
+#### PREPROCESAMIENTO 2 - Diagnóstico de Valores Faltantes ####
+
+anyNA(data) 
+na_count <- colSums(is.na(data))
+print(na_count[na_count > 0]) 
+
+##### Imputación (Tratamiento de NAs)
+
+   # Imputación simple por la mediana (para numéricas)
+data <- data %>%
+  mutate(across(where(is.numeric), ~replace_na(., median(., na.rm = TRUE))))
+   # Eliminar filas con NAs
+ data <- na.omit(data) 
+
+anyNA(data) 
+
+
+#### PREPROCESAMIENTO 3 - Filtrado variables con poca varianza (~0 información) ####
+
+dim(data)
+columnas_factor <- colnames(data[, sapply(data, is.factor)])
+
+varianza <- sapply(data[, sapply(data, is.numeric)], var)
+columnas_validas_001 <- names(varianza[varianza > 0.0001 & !is.na(varianza)])    # FILTRO VARIANZA 0 SOLO PARA CUANDO SE ELIMINAN DEMASIADAS VARIABLES 
+data <- data[, c(columnas_factor, 
+                 columnas_validas_001)] 
+
+dim(data) # se ha eliminado la varaible sg por tener varainza proxima a 0 y no aportar infomración
+
+#### PREPROCESAMIENTO 6 - Variables numericas ####
+
+cols_numerico <- which(sapply(data, is.numeric))
+data_numerico <- data[, cols_numerico]
+data_numerico_scaled <- scale(data_numerico)
+dim(data_numerico)
+
+
+## **3. Técnicas de Aprendizaje No Supervisado** ####
+
+### **3.1. Principal component analysis (PCA)** ####
+
+pca.results <- prcomp(data_numerico,       
+                      center=TRUE, 
+                      scale.=TRUE) 
+
+data.pca <- data.frame(pca.results$x)
+
+varianzas <- pca.results$sdev^2
+varianza.explicada <- varianzas / sum(varianzas)
+varianza.acumulada <- cumsum(varianza.explicada) 
+
+n.pc <- min(which(varianza.acumulada > 0.90))  
+n.pc
+
+data.pca.pro <-  data.frame(pca.results$x[, 1:n.pc])  # dataset k explica 90% de la varianza
+
+ggplot(data.pca,    
+       aes(x=PC1, 
+           y=PC2,
+           color=data$classification)) +    # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO
+  geom_point(size=3, alpha=0.7)                  +  
+  scale_color_manual(values=c("#00A087", "#F39B7F")) + 
+  labs(title= "Análisis de Componentes Principales (PCA) de la Variabilidad Estructural", 
+       x=paste0(paste('PC1', round(varianza.explicada[1] * 100, 2)), '%'),                    
+       y=paste0(paste('PC2', round(varianza.explicada[2] * 100, 2)),'%'),                   
+       color='Diagnóstico') +              # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO
+  theme_light() +   
+  theme(panel.grid.major = element_line(color="gray90"), 
+        panel.grid.minor = element_blank(),                
+        panel.background = element_rect(fill = "gray95"), 
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        text = element_text(family = "serif", size = 12))   
+
+
+### **3.2. Multidimensional scaling (MDS)** ####
+
+distancias <- dist(data_numerico_scaled, method = "euclidean")
+
+
+#### MDS Clásico (cmdscale) ####
+
+mds.results <- cmdscale(distancias, eig = TRUE, k = 2)
+mds.df <- data.frame(mds.results$points)
+colnames(mds.df) <- c("X1", "X2")
+mds.df$classification <- data$classification     # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO  
+
+ggplot(mds.df, 
+       aes(x = X1, 
+           y = X2, 
+           color = data$classification)) +        # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO  
+  geom_point(size = 3) +  
+  scale_color_manual(values=c("#00A087", "#F39B7F")) + 
+  labs(title = "Escalamiento Multidimensional (MDS): Proyección de Distancias Inter-observación", 
+       x = "Dimensión 1",                                    
+       y = "Dimensión 2",                                    
+       color = 'Diagnóstico') +                  # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO   
+  theme_light() +   
+  theme(panel.grid.major = element_line(color = "gray90"), 
+        panel.grid.minor = element_blank(),                 
+        panel.background = element_rect(fill = "gray95"), 
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        text = element_text(family = "serif", size = 12))
+
+
+#### MDS 3D ####
+
+mds_result_3D <- cmdscale(distancias, k = 3)
+
+mds_df <- as.data.frame(mds_result_3D)
+colnames(mds_df) <- c("Dim1", "Dim2", "Dim3")
+
+mds_df$classification <- data$classification    # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO   
+
+fig <- plot_ly(mds_df, x = ~Dim1, y = ~Dim2, z = ~Dim3, 
+               color = ~classification, colors = "Set1", 
+               marker = list(size = 4))
+
+fig
+
+
+### **3.10. Clusterización no jerárquica: K-means** ####
+
+matrix.dist <- dist(data_numerico_scaled)
+
+set.seed(2002)
+
+n_clases <- length(unique(data$classification))   # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO
+km_resultados <- kmeans(data_numerico_scaled, centers = n_clases, nstart = 25)
+
+table(Cluster = km_resultados$cluster,  # Si el algoritmo es perfecto, se ven nuemros altos solo en la diagonal de la tabla.
+      Diagnostico_Real = data$classification)  # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO 
+
+data_plot <- data.frame(
+  PC1 = pca.results$x[, 1], 
+  PC2 = pca.results$x[, 2], 
+  Cluster = as.factor(km_resultados$cluster), 
+  Diagnostico = data$classification   # CUIDADO IMPORTANTE CAMBIAR SEGUN SEA NECESARIO
+)
+
+ggplot(data_plot, 
+       aes(x = PC1, 
+           y = PC2, 
+           color = Cluster,      # El color representa el grupo asignado por K-means
+           shape = Diagnostico)) + # La forma representa la clase real
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_manual(values=c("#00A087", "#F39B7F")) + 
+  labs(title = "Agrupamiento K-Means: Distribución de Observaciones en Clusters Óptimos",
+       subtitle = "Proyección en los dos primeros Componentes Principales",
+       x = "Componente Principal 1",                                    
+       y = "Componente Principal 2",                                    
+       color = 'Cluster K-Means',
+       shape = 'Clase Real') +            
+  theme_light() +   
+  theme(panel.grid.major = element_line(color = "gray90"), 
+        panel.grid.minor = element_blank(),                 
+        panel.background = element_rect(fill = "gray95"), 
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, italic = TRUE),
+        text = element_text(family = "serif", size = 12),
+        legend.background = element_rect(fill = "transparent"))
+
+
+## **4. Técnicas de Aprendizaje Supervisado** ####
+
+### INCISO PARA EL CORRECTOR
+
+# Me he dado cuenta de que no he hecho los modelos de aprendizaje supervisado con el dataset reducido generado por
+# la reducción de dimensionalidad. Hubiese sido tan sencillo como emplear `data.pca.pro` para realizar la partición
+# de los datos.
+
+### **4.0. Configuración del Dataset de Análisis** ####
+
+#### PROCEDIMIENTO HABITUAL ####
+
+data$classification <- as.factor(data$classification)   
+table(data$classification)   
+
+set.seed(2002)
+
+train_index <- createDataPartition(data$classification,
+                                   p = 0.8,
+                                   list = FALSE)
+
+train_data <- data[train_index, ]   
+test_data  <- data[-train_index, ]  
+
+prop.table(table(train_data$classification))  
+prop.table(table(test_data$classification))  
+
+anyNA(train_data) # Debería devolver FALSE
+
+### **4.1. Regularized Discriminant Analysis (RDA)** ####
+
+modelo_rda <- train(classification ~ ., 
+                    data = train_data, # CAMBIAR A train_data SI EL ALGORITMO LO CORRE
+                    method = "rda", # <--- El cambio clave
+                    trControl = trainControl(method = "cv", number = 10),
+                    preProcess = c("center", "scale")) 
+
+print(modelo_rda)
+
+predic_rda <- predict(modelo_rda, newdata = test_data) # CAMBIAR A tEST_data SI EL ALGORITMO LO CORRE
+confusionMatrix(predic_rda, test_data$classification)   # CAMBIAR A test_data SI EL ALGORITMO LO CORRE
+
+
+### **4.2. Flexible Discriminant Analysis (FDA)** ####
+
+modelo_fda <- train(classification ~ ., 
+                    data = train_data, 
+                    method = "fda", # <--- El cambio clave
+                    trControl = trainControl(method = "cv", number = 10),
+                    preProcess = c("center", "scale")) 
+
+print(modelo_fda)
+
+predic_fda <- predict(modelo_fda, newdata = test_data)
+confusionMatrix(predic_fda, test_data$classification)
+
+
+### **4.3. K-Nearest Neighbors (k-NN)** ####
+
+modelo_knn <- train(classification ~ ., 
+                    data = train_data, 
+                    method = "knn", # <--- El cambio clave
+                    trControl = trainControl(method = "cv", number = 10),
+                    preProcess = c("center", "scale")) 
+
+print(modelo_knn)
+plot(modelo_knn)   # esto sirve para mirar el numero optimo de grupos
+
+predic_knn <- predict(modelo_knn, newdata = test_data)
+confusionMatrix(predic_knn, test_data$classification)
+
+
+### **4.4. Support Vector Machines (SVM)** ####
+
+modelo_svm <- train(classification ~ .,                    
+                    data = train_data,                 
+                    method = "svmLinear",   # "svmRadial"      
+                    trControl = trainControl(method = "cv", number = 10), 
+                    preProcess = c("center", "scale"), 
+                    tuneGrid = expand.grid(C = seq(0.1, 2, length = 20)),
+                    prob.model = TRUE)               
+
+modelo_svm
+
+plot(modelo_svm)
+
+predic_svm <- predict(modelo_svm, newdata = test_data)
+confusionMatrix(predic_svm, test_data$classification)
+
+prob_svm <- predict(modelo_svm, newdata = test_data, type = "prob")
+
+
+### **4.5. Random Forest (RF)** ####
+
+modelo_rf <- train(classification ~ .,         
+                   data = train_data,       
+                   method = "rf",          
+                   trControl = trainControl(method = "cv", number = 10),
+                   tuneLength = 10,       
+                   importance = TRUE)       
+
+modelo_rf 
+
+plot(modelo_rf)       
+
+plot(varImp(modelo_rf))
+
+predic_rf <- predict(modelo_rf, newdata = test_data)
+confusionMatrix(predic_rf, test_data$classification)
+
+
+### **4.6. Naive Bayes** ####
+
+modelo_nb <- train(classification ~ ., 
+                   data = train_data, 
+                   method = "naive_bayes", 
+                   trControl = trainControl(method = "cv", number = 10),
+                   preProcess = c("center", "scale"),
+                   tuneGrid = expand.grid(usekernel = c(TRUE, FALSE), 
+                                          laplace = 0, 
+                                          adjust = 1))
+
+predic_nb <- predict(modelo_nb, newdata = test_data)
+confusionMatrix(predic_nb, test_data$classification)
+
+
+### **4.7. Gradient Boosting Machines (GBM)** ####
+
+modelo_gbm <- train(classification ~ ., 
+                    data = train_data, 
+                    method = "gbm", 
+                    trControl = trainControl(method = "cv", number = 10),
+                    preProcess = c("center", "scale"),
+                    verbose = FALSE) # Para que no ensucie el R Markdown
+
+print(modelo_gbm)
+
+predic_gbm <- predict(modelo_gbm, newdata = test_data)
+confusionMatrix(predic_gbm, test_data$classification)
+
+
+## **5. Evaluación del rendimiento y comparativa de modelos predictivos** ####
+
+resultados <- resamples(list(RDA = modelo_rda,
+                             FDA = modelo_fda,
+                             KNN   = modelo_knn,
+                             SVM = modelo_svm,
+                             RF    = modelo_rf,
+                             NB    = modelo_nb,
+                             GBM   = modelo_gbm))
+
+summary(resultados)
+
+dotplot(resultados, 
+        main = "Comparativa Global de Modelos Supervisados",
+        metric = "Accuracy")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
