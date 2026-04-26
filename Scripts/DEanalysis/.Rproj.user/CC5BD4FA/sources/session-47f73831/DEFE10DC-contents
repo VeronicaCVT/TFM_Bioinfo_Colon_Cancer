@@ -1,0 +1,461 @@
+##########################################################################################################
+#
+#   title: "Gene-level differential expression analysis using DESeq2"
+#   author: "Verónica Cabeza de Vaca Tocino"
+#   date: "2026-04"
+#
+##########################################################################################################
+
+## Setup ####
+
+### Instalation ####
+
+#install.packages("BiocManager")
+#install.packages("tidyverse")
+#install.packages("RColorBrewer")
+#install.packages("pheatmap")
+#install.packages("ggrepel")
+#install.packages("cowplot")
+
+#library(BiocManager)
+
+#install("DESeq2")
+#install("clusterProfiler")
+#install("DOSE")
+#install("org.Hs.eg.db")
+#install("pathview")
+#install("DEGreport")
+#install("tximport")
+#install("AnnotationHub")
+#install("ensembldb")
+#install("apeglm")
+
+### Load libraries ####
+
+library(DESeq2)
+library(tidyverse)
+library(RColorBrewer)
+library(pheatmap)
+library(DEGreport)
+library(tximport)
+library(ggplot2)
+library(ggrepel)
+
+### Load data ####
+
+getwd()
+
+data_raw <- read.csv("./data/GSE164541_ANT_count.csv", header =  TRUE, row.names = 1)
+head(data_raw)
+
+data <- data_raw[3:17] %>%
+  select(PN1, PN2, PN3, PN4, PN5, PA1, PA2, PA3, PA4, PA5, PT1, PT2, PT3, PT4, PT5)  # Para que cuadre con la metadata (X DESEQ2)
+head(data)
+dim(data)
+
+data_long <- data %>% 
+  pivot_longer(cols = everything(), names_to = "sample", values_to = "counts")  # Transformar a formato largo para que ggplot pueda manejar todas las muestras
+head(data_long)
+
+#### Load metadata ####
+
+meta <- read.csv("./data/GSE164541_filtered_metadata.csv", header = TRUE) %>%
+  data.frame(row.names = colnames(data))
+head(meta)
+
+## Visualization ####
+
+ggplot(data_long, aes(x = counts)) + 
+  geom_histogram(bins = 75, fill = "#3C5488") + 
+  scale_x_log10() +  # Escala logarítmica para ver algo útil
+  xlab("Raw expression counts (log10)") + 
+  ylab("Number of genes") +
+  facet_wrap(~sample, ncol = 5, nrow = 3) +
+  theme_light() +
+  theme(axis.text.x = element_blank())  # Quitar etiquetas eje x
+
+
+
+
+### Principal component analysis (PCA)** ####
+
+varianza_genes <- apply(data, 1, var)  # varianza por FILAS (genes)
+data_filtered <- data[varianza_genes > 0.1 & !is.na(varianza_genes),] # Filtrado porque PCA no admite columnas (genes) con todo 0
+dim(data_filtered)
+
+pca.results <- prcomp(t(data_filtered),       
+                      center=TRUE, 
+                      scale.=TRUE) 
+
+data.pca <- data.frame(pca.results$x)
+
+data.pca$Sample <- rownames(data.pca)
+data.pca$Class <- substr(data.pca$Sample, 1, 2)
+data.pca$Patient <- substr(data.pca$Sample, 3, 3)
+str(data.pca)
+
+varianzas <- pca.results$sdev^2
+varianza.explicada <- varianzas / sum(varianzas)
+
+#### PCA by Class ####
+
+ggplot(data.pca,    
+       aes(x=PC1, 
+           y=PC2,
+           color=Class)) +  
+  geom_point(size=3, alpha=0.7)                  +  
+  scale_color_manual(values=c("#00A087", "#3C5488", "#F39B7F")) + 
+  labs(title= "Análisis de Componentes Principales (PCA) según la condición", 
+       x=paste0(paste('PC1', round(varianza.explicada[1] * 100, 2)), '%'),                    
+       y=paste0(paste('PC2', round(varianza.explicada[2] * 100, 2)),'%'),                   
+       color='Condición') +             
+  theme_light() +   
+  theme(panel.grid.major = element_line(color="gray90"), 
+        panel.grid.minor = element_blank(),                
+        panel.background = element_rect(fill = "gray95"), 
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        text = element_text(family = "serif", size = 12))    
+
+
+
+
+#### PCA by Patient ####
+
+ggplot(data.pca,    
+       aes(x=PC1, 
+           y=PC2,
+           color=Patient)) +  
+  geom_point(size=3, alpha=0.7)                  +  
+  scale_color_manual(values=c("#E64B35", "#4DBBD5", "#00A087", "#3C5488", "#F39B7F")) + 
+  labs(title= "Análisis de Componentes Principales (PCA) según los pacientes", 
+       x=paste0(paste('PC1', round(varianza.explicada[1] * 100, 2)), '%'),                    
+       y=paste0(paste('PC2', round(varianza.explicada[2] * 100, 2)),'%'),                   
+       color='Paciente') +             
+  theme_light() +   
+  theme(panel.grid.major = element_line(color="gray90"), 
+        panel.grid.minor = element_blank(),                
+        panel.background = element_rect(fill = "gray95"), 
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        text = element_text(family = "serif", size = 12))    
+
+
+
+
+
+## DESeq2 ####
+
+### Data preprocessing ####
+
+coldata <- data.frame(Patient = data.pca$Patient,
+                      Condition = data.pca$Class,
+                      row.names = colnames(data))
+coldata$Patient <- as.factor(coldata$Patient)
+coldata$Condition <- as.factor(coldata$Condition)
+coldata$Condition <- relevel(coldata$Condition, ref = "PN")
+head(coldata)
+str(coldata)
+
+all(rownames(coldata) == colnames(data)) # Comprobar que hay consistencia en los nombres
+
+dds <- DESeqDataSetFromMatrix(countData = data,
+                              colData = coldata,
+                              design= ~ Patient + Condition)
+dim(dds)
+
+
+#### Filtered data ####
+
+smallestGroupSize <- 5
+keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
+dds <- dds[keep,]
+dim(dds)
+
+### DEseq + results ####
+
+dds <- DESeq(dds)
+
+#### Regularized log transform (rlog) ####
+
+rld <- rlog(dds, blind=FALSE) # Estabilización de la varianza + cpnsistencia en visualización
+
+rld_mat <- assay(rld)
+
+data_long_rlog <- as.data.frame(rld_mat) %>%
+  pivot_longer(everything(), names_to = "sample", values_to = "rlog_counts")
+
+#### Results (Condition_PT_vs_PN) ####
+
+?results
+
+resultsNames(dds)
+
+res_raw <- results(dds, name="Condition_PT_vs_PN")
+res_raw_ordered <- res_raw[order(res_raw$padj), ]
+res_raw_ordered
+
+names(res_raw)
+
+#####
+
+res05 <- results(dds, alpha=0.05)
+summary(res05)
+sum(res05$padj < 0.05, na.rm=TRUE) # 4607
+
+#####
+
+res005 <- results(dds, alpha=0.005)
+summary(res005)
+sum(res005$padj < 0.005, na.rm=TRUE) # 2050
+
+#####
+
+res001 <- results(dds, alpha=0.001)
+summary(res001)
+sum(res001$padj < 0.001, na.rm=TRUE) # 1238
+
+#####
+
+res05_05 <- results(dds, alpha=0.05, lfcThreshold = 0.585)
+summary(res05_05)
+sum(res05_05$padj < 0.05, na.rm=TRUE) # 1519
+
+#####
+
+res005_05 <- results(dds, alpha=0.005, lfcThreshold = 0.585)
+summary(res005_05)
+sum(res005_05$padj < 0.005, na.rm=TRUE) # 665
+
+#####
+
+res001_05 <- results(dds, alpha=0.001, lfcThreshold = 0.585)
+summary(res001_05)
+sum(res001_05$padj < 0.001, na.rm=TRUE) # 441
+
+
+#####
+
+res05_1 <- results(dds, alpha=0.05, lfcThreshold = 1)
+summary(res05_1)
+sum(res05_1$padj < 0.05, na.rm=TRUE) # 645
+
+#####
+
+res005_1 <- results(dds, alpha=0.005, lfcThreshold = 1)
+summary(res005_1)
+sum(res005_1$padj < 0.005, na.rm=TRUE) # 327
+
+#####
+
+res001_1 <- results(dds, alpha=0.001, lfcThreshold = 1)
+summary(res001_1)
+sum(res001_1$padj < 0.001, na.rm=TRUE) # 209
+
+
+################################################################
+###
+### - baseMean: Promedio de conteo normalizado para un gen en todas las muestras, sin considerar el diseño experimental. Sirve como una medida básica de expresión general
+###
+### - log2FoldChange: Cambio relativo en la expresión entre las dos condiciones comparadas. Un valor positivo significa que hay mayor expresión en la condición de interés, mientras un valor negativo refleja menor expresión
+###
+### - lfcSE: Error estándar del log2FoldChange. Muestra variabilidad esperada del cambio relativo estimado
+###
+### - stat: Estadístico de prueba usado para evaluar la hipótesis nula (que no hay diferencia en la expresión). Es el cociente entre el log2FoldChange y su error estándar.
+###
+### - pvalue: Representa la probabilidad de observar un efecto tan extremo como el estimado, suponiendo que la hipótesis nula sea verdadera
+###
+### - padj: Valor p ajustado para múltiples comparaciones. Este valor es crucial para determinar qué genes son diferencialmetne expresados, ya que controla la tasa de falsos descubrimientos (FDR)
+###
+################################################################
+
+
+### Log fold change shrinkage for visualization and ranking ####
+  # reducir falsos positivos
+
+resLFC <- lfcShrink(dds, coef="Condition_PT_vs_PN", type="apeglm") # No borra genes, recalcula LFC y standar error
+summary(resLFC)
+
+resLFC_ordered <- resLFC[order(resLFC$padj), ]
+resLFC_ordered
+summary(resLFC_ordered)
+
+resLFC_filtered <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 0.585 & resLFC_ordered$padj < 0.05, ]
+resLFC_filtered
+summary(resLFC_filtered)
+
+top20_sig_genes <- rownames(resLFC_filtered)[1:20]
+
+write.csv(as.data.frame(resLFC_filtered),
+          file = "results/Resultados_LFC_Shrink.csv")
+
+
+## Exploring and exporting results ####
+
+### Filtrar el objeto de visualización (rld)
+muestras_sin_PA <- colData(dds)$Condition %in% c("PN", "PT")
+rld_filtrado <- rld[, muestras_sin_PA]
+colData(rld_filtrado)$Condition <- droplevels(colData(rld_filtrado)$Condition)
+
+
+
+
+
+### Histogram ####
+
+ggplot(data_long_rlog, aes(x = rlog_counts)) + 
+  geom_histogram(bins = 75, fill = "#3C5488") + 
+  xlab("rlog transformed counts") + 
+  ylab("Number of genes") +
+  facet_wrap(~sample, ncol = 5, nrow = 3) +
+  theme_light()
+
+### MA-plot ####
+
+plotMA(resLFC, ylim=c(-5,5))
+
+plotMA(resLFC, 
+       ylim = c(-6, 6),            
+       main = "Diferencias PT vs PN (Shrunken LFC)",
+       cex = 0.4)  
+abline(h = c(-0.585, 0.585), col = "red", lwd = 2, lty = 2)  # Lineas para los umbrales de 1.5x (0.585)
+
+    # Esto es para detectar puntos de interes en el plot de manera interactiva (indagar más tarde)
+#idx <- identify(res$baseMean, res$log2FoldChange)
+#rownames(res)[idx]
+
+### Plot counts ####
+top20_counts <- counts(dds, normalized = TRUE)[top20_sig_genes, ]
+
+top20_df <- as.data.frame(top20_counts) %>%
+  mutate(gene = rownames(.)) %>%
+  pivot_longer(cols = -gene, names_to = "sample", values_to = "counts")
+
+top20_df <- top20_df %>%
+  left_join(as.data.frame(colData(dds)) %>% 
+              mutate(sample = rownames(.)), 
+                     by = "sample")
+
+top20_filtered <- top20_df %>%
+  filter(Condition %in% c("PN", "PT")) # Solo mantiene Normal y Tumor
+
+ggplot(top20_filtered,
+       aes(x = Condition, y = counts, fill = Condition)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.7) +
+  facet_wrap(~ gene, scales = "free_y", ncol = 5) + 
+  scale_y_log10() + 
+  scale_fill_manual(values = c("PN" = "#3C5488", "PT" = "#DC0000")) +
+  theme_light() +
+  labs(title = "Top 20 Genes: Normal (PN) vs Tumor (PT)",
+       y = "Normalized Counts (log10)",
+       x = "Condición Biológica") +
+  theme(axis.text.x = element_text(face = "bold"),
+        legend.position = "none",
+        strip.text = element_text(size = 8))
+
+### Heatmap ####
+
+df <- as.data.frame(colData(dds)[,c("Condition","Patient")])
+
+muestras_interes <- rownames(df[df$Condition %in% c("PN", "PT"), ])
+mat_filtrada <- assay(rld)[top20_sig_genes, muestras_interes]
+df_filtrado <- df[muestras_interes, ]
+
+
+pheatmap(mat_filtrada, 
+         cluster_rows = FALSE, 
+         show_rownames = TRUE,
+         cluster_cols = FALSE,   
+         annotation_col = df_filtrado,
+         main = "Top 20 Genes: PN vs PT")
+
+pheatmap(mat_filtrada, 
+         cluster_rows = FALSE, 
+         show_rownames = TRUE,
+         cluster_cols = TRUE,    
+         annotation_col = df_filtrado,
+         main = "Top 20 Genes: PN vs PT")
+
+### PCA ####
+
+plotPCA(rld_filtrado, intgroup = c("Condition")) + 
+  theme_light() +
+  scale_color_manual(values = c("#00A087", "#3C5488", "#F39B7F")) +
+  labs(title = "PCA - Progresión de Adenoma a Carcinoma")
+
+plotPCA(rld_filtrado, intgroup = c("Condition"), ntop=500) + 
+  theme_light() +
+  scale_color_manual(values = c("#00A087", "#3C5488", "#F39B7F")) +
+  labs(title = "PCA - Progresión de Adenoma a Carcinoma")
+
+#### Extra
+
+
+pca_rld <- prcomp(t(rld_mat),       
+                  center=TRUE, 
+                  scale.=TRUE) 
+
+data.pca_rld <- data.frame(pca_rld$x)
+
+data.pca_rld$Sample <- rownames(data.pca_rld)
+data.pca_rld$Class <- substr(data.pca_rld$Sample, 1, 2)
+data.pca_rld$Patient <- substr(data.pca_rld$Sample, 3, 3)
+
+varianzas_rld <- pca_rld$sdev^2
+varianza.explicada_rld <- varianzas_rld / sum(varianzas_rld)
+
+#### PCA by Class ####
+
+ggplot(data.pca_rld,    
+       aes(x=PC1, 
+           y=PC2,
+           color=Class)) +  
+  geom_point(size=3, alpha=0.7)                  +  
+  scale_color_manual(values=c("#00A087", "#3C5488", "#F39B7F")) + 
+  labs(title= "Análisis de Componentes Principales (PCA)", 
+       x=paste0(paste('PC1', round(varianza.explicada_rld[1] * 100, 2)), '%'),                    
+       y=paste0(paste('PC2', round(varianza.explicada_rld[2] * 100, 2)),'%'),                   
+       color='Diagnóstico') +             
+  theme_light() +   
+  theme(panel.grid.major = element_line(color="gray90"), 
+        panel.grid.minor = element_blank(),                
+        panel.background = element_rect(fill = "gray95"), 
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        text = element_text(family = "serif", size = 12))    
+
+biplot(pca_rld)  # esto plotea todos los genes a la vez, modificar
+
+### MA-plot ####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
