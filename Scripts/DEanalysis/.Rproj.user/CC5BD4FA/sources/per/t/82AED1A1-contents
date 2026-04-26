@@ -1,0 +1,458 @@
+# Tutorial RNA-seq de expresión diferencial con DESeq2 #
+# Proyecto: Ampliseq transcriptomic array of REF seq. genes in Snai1 knock out triple negative breast cancer cells 
+# https://www.ebi.ac.uk/gxa/experiments/E-MTAB-5244/Results
+
+# ------------------------------------------------------------------------------
+# 1. Configuración inicial
+# ------------------------------------------------------------------------------
+
+if (!require("BiocManager", quietly = TRUE)) # Verificamos si el paquete está instalado sin cargarlo,
+  install.packages("BiocManager") # Si no está, se instala.
+BiocManager::install("DESeq2", force = TRUE) # Instalamos el programa que vamos a utilizar para realizar el análisis diferencial de genes
+library(DESeq2)
+library(readr)
+
+# Primero instalas el gestor de Bioconductor
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+# Luego instalas tximport (siempre con comillas)
+BiocManager::install("tximport")
+library(tximport)
+# ------------------------------------------------------------------------------
+# 2. Descargamos los datos
+# ------------------------------------------------------------------------------
+
+setwd("C:/Users/verit/Documents/MASTER BIOINFORMATICA/1º Cuatri/Secuenciación y ómicas de última generación/Actividades/Actividad 2/omicas-act2-main")
+
+sample_info = read_csv("Design.csv", locale = locale(encoding = "UTF-8"))
+tx2gene = read_tsv("Transcrito_a_Gen.tsv", col_names = FALSE) 
+colnames(tx2gene) = c("TXNAME", "GENEID") 
+
+# 2. Definición de rutas a los ficheros quant.sf generados por Salmon
+files = file.path("salmon_data", sample_info$Sample, "quant.sf")
+names(files) = sample_info$Sample
+
+# 3. Importación y agrupación a nivel de gen con tximport
+txi = tximport(files, type = "salmon", tx2gene = tx2gene) 
+
+# 4. Obtención de la matriz de expresión definitiva
+txi$counts 
+
+
+
+
+# ------------------------------------------------------------------------------
+# 3. Preparación de datos para DESeq2
+# ------------------------------------------------------------------------------
+
+# Una característica de DESeq es que espera que los conteos tengan IDs de genes como nombres de fila
+head(counts)
+rownames(counts) = counts$Gene.ID
+head(counts)
+
+# Y quitamos las columnas no necesarias (gene ID y gene name)
+genes = counts[, c("Gene.ID", "Gene.Name")]
+counts = counts[, -c(1, 2)]
+head(counts)
+
+# Por otro lado, DESeq también espera que la matriz de metadatos tenga el ID de muestra en los rownames
+head(metadata)
+rownames(metadata) = metadata$Run
+head(metadata)
+
+# Y simplificamos las columnas que van a ser de interés para el análisis, en este caso las condiciones del genotipo
+metadata = metadata[, c("Sample.Characteristic.genotype."), drop=FALSE]
+metadata
+
+# Y renombramos la columna para que sea más manejable
+colnames(metadata) = c("genotype")
+metadata
+
+# Quitamos los espacios en el nombre de las condiciones para evitar cualquier warning/aviso posterior de DESeq2
+metadata$genotype[metadata$genotype == 'wild type genotype'] = 'wildtype'
+metadata$genotype[metadata$genotype == 'Snai1 knockout'] = 'knockout'
+metadata
+
+# Formateamos los valores de las condiciones para convertirlos en factor
+metadata$genotype = factor(metadata$genotype, levels=c("wildtype", "knockout"))
+metadata$genotype
+
+
+# ------------------------------------------------------------------------------
+# 4. Verificación de la expresión de SNAI1
+# ------------------------------------------------------------------------------
+
+gene_id = genes$Gene.ID[ genes$Gene.Name == 'SNAI1' ] # Buscamos el ID del gen SNAI1 en los datos de los genes
+gene_counts = counts[gene_id, ] # Extraemos el conteo asociado a este gen
+gene_counts
+
+gene_data = cbind(metadata, counts=as.numeric(gene_counts)) # Combinamos la información del conteo del gen, con la información del metadato
+gene_data
+
+if(!require(ggplot2)){
+  install.packages("ggplot2")
+  library(ggplot2)
+}
+ggplot(gene_data, aes(x = genotype, y = counts, fill = genotype)) + geom_boxplot() # Visualizamos con ggplot las diferencias de expresión entre genotipos
+
+
+# ------------------------------------------------------------------------------
+# 5. Análisis diferencial con DESeq2
+# ------------------------------------------------------------------------------
+
+# Creamos un objeto DESeqDataSet con el conteo y los metadatos, especificando el genotipo como diseño experimental
+dds <- DESeqDataSetFromMatrix(countData=counts, colData=metadata, design=~genotype)
+
+# Filtramos genes con bajo conteo para mejorar la calidad del análisis
+dds <- dds[rowSums(counts(dds)) > 10, ]
+
+# Ejecutamos DESeq2
+dds <- DESeq(dds)
+
+# Extraemos la información de los resultados específicos comparando las condiciones del diseño
+res = results(dds, contrast=c("genotype", "knockout", "wildtype"), alpha=1e-5) 
+# El valor alpha es el umbral de significancia para los valores ajustados de padj. 
+# Representa la tasa máxima aceptable de falsos positivos (Error tipo I). 
+# En este caso establecemos un umbral de 0.001% para considerar un gen como significativamente diferencial, útil para datos de alta calidad o alta dimensionalidad (decenas de miles de genes a analizar, por lo que un umbral más bajo reduce el riesgo de detectar genes "falsos positivos" debido a la cantidad de pruebas realizadas)
+res
+
+### Explicación de los resultados ###
+
+# * baseMean: Promedio de conteo normalizado para un gen en todas las muestras, sin considerar el diseño experimental. Sirve como una medida básica de expresión general
+
+# * log2FoldChange: Cambio relativo en la expresión entre las dos condiciones comparadas. Un valor positivo significa que hay mayor expresión en la condición de interés, mientras un valor negativo refleja menor expresión
+
+# * lfcSE: Error estándar del log2FoldChange. Muestra variabilidad esperada del cambio relativo estimado
+
+# * stat: Estadístico de prueba usado para evaluar la hipótesis nula (que no hay diferencia en la expresión). Es el cociente entre el log2FoldChange y su error estándar.
+
+# * pvalue: Representa la probabilidad de observar un efecto tan extremo como el estimado, suponiendo que la hipótesis nula sea verdadera
+
+# * padj: Valor p ajustado para múltiples comparaciones. Este valor es crucial para determinar qué genes son diferencialmetne expresados, ya que controla la tasa de falsos descubrimientos (FDR)
+
+
+## Cómo se puede filtrar más los resultados
+
+### a. Filtrar genes con baja expresión
+### b. Ajustar el valor de alpha
+### c. Cambiar el umbral de log2FoldChange
+
+
+# Otros ejemplos de fórmula de diseño:
+# - https://www.ebi.ac.uk/gxa/experiments/E-MTAB-8031/Results
+#     * RNA-seq sobre tumores pulmonares
+#     * Variables:
+#         1. Location: células tumorales o tejido normal cercano
+#         2. Sex
+#     * Formula = ~sex + location
+#
+# - https://www.ebi.ac.uk/gxa/experiments/E-MTAB-10041/Results
+#     * RNA-seq en células de colon de ratón
+#     * Variables:
+#         1. Compound: medicamento contra el cancer o no
+#         2. Genotype: ratón wildtype y otros 2 genotipos de mutaciones TP53
+#     * Formula = ~genotype + compound  ## Estaríamos evaluando los efectos de cada variable de forma independiente, no capturaríamos cómo la interacción entre genotype y compound afecta en la expresión génica.
+#     * Formula = ~group 
+#         metadata$group = factor(paste(metadata$genotype, metadata$compound)) # Haciendo esto combinamos todas las variables en una sola, es útil cuando queremos analizar todas las combinaciones posibles y compararlas entre sí
+
+# ------------------------------------------------------------------------------
+# Controles adicionales
+# ------------------------------------------------------------------------------
+
+# Podemos comparar estos controles para ver si todo ha ido bien con el proyecto en el Expression Atlas
+# https://www.ebi.ac.uk/gxa/experiments/E-MTAB-5244/Results?specific=true&geneQuery=%255B%255D&filterFactors=%257B%257D&cutoff=%257B%2522foldChange%2522%253A11%252C%2522pValue%2522%253A0.01%257D&regulation=%2522UP_DOWN%2522
+
+# Fusionar el nombre del gen con el dataframe para poder comparar los datos usando los nombres de los genes
+res_df = as.data.frame(res)
+head(res_df)
+head(genes)
+res_df = merge(res_df, genes, by='row.names')
+head(res_df)
+
+genes_to_check = c("THY1", "SFMBT2", "PASD1", "SNAI1")
+res_df[res_df$Gene.Name %in% genes_to_check, ]
+
+
+# ------------------------------------------------------------------------------
+# 6. Visualización de los resultados
+# ------------------------------------------------------------------------------
+
+# MA plot
+plotMA(res) # Los valores azules son los genes que pasan el umbral que hemos especificado del alpha
+
+# Volcano plot
+BiocManager::install('EnhancedVolcano')
+library(EnhancedVolcano)
+EnhancedVolcano(res_df, lab=res_df$Gene.Name, x='log2FoldChange', y='pvalue', labSize = 3, axisLabSize = 10)
+
+### O siendo más estrictos
+EnhancedVolcano(res_df, lab=res_df$Gene.Name, x='log2FoldChange', y='pvalue', pCutoff=1e-20, FCcutoff=5, labSize = 3, axisLabSize = 10)
+
+### O prefiltrando genes no significativos para aligerar la nube de puntos:
+res_filt <- res_df[
+  res_df$pvalue < 0.001 & abs(res_df$log2FoldChange) > 2, ]
+EnhancedVolcano(res_filt, lab=res_filt$Gene.Name, x='log2FoldChange', y='pvalue', pCutoff=1e-20, FCcutoff=5, labSize = 3, axisLabSize = 10)
+
+# HeatMap
+
+if(!require(pheatmap)){
+  install.packages("pheatmap")
+  library(pheatmap)
+}
+
+vsd <- vst(dds, blind = FALSE) ## Aplica la transformación vst() (variance-stabilizing transformation) de DESeq2 al objeto dds
+mat <- assay(vsd)[(rownames(res)), ] ## Extrae la matriz de expresión transformada (filas = genes, columnas = muestras)
+rownames(mat) <- res_df$Gene.Name ## Reemplaza los identificadores de fila por nombres de genes
+mat_scaled <- t(scale(t(mat))) # Escala y transpone la matriz
+
+pheatmap(mat_scaled,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         annotation_col = as.data.frame(colData(dds)),
+         show_rownames = TRUE,
+         show_colnames = TRUE,
+         fontsize_row = 3,
+         fontsize_col = 8,
+         color = colorRampPalette(c("blue", "white", "red"))(50))
+
+# Extracción de lista top genes diferencialmente expresados
+
+res_ordered <- res_df[order(res_df$padj), ]
+# Ordenar por significancia ajustada
+# Seleccionar los 10 genes más significativos
+top10_genes <- head(res_ordered, 10)
+top10_genes
+
+mat_subset <- mat_scaled[(head(order(res$padj), 10)), ]
+
+pheatmap(mat_subset,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         annotation_col = as.data.frame(colData(dds)),
+         show_rownames = TRUE,
+         show_colnames = TRUE,
+         color = colorRampPalette(c("blue", "white", "red"))(50))
+
+
+# ------------------------------------------------------------------------------
+# 7. Análisis de enriquecimiento
+# ------------------------------------------------------------------------------
+
+pkgs_bioc <- c("clusterProfiler", "org.Hs.eg.db", "ReactomePA", "enrichplot")
+for (p in pkgs_bioc) {
+  if (!requireNamespace(p, quietly=TRUE)) BiocManager::install(p)
+  library(p, character.only = TRUE)
+}
+
+
+## Creamos un conjunto de datos con símbolos únicos y los resultados de significancia
+genes_df <- unique(data.frame(symbol = res_df$Gene.Name,
+                              log2FC = res_df$log2FoldChange,
+                              padj = res_df$padj,
+                              stringsAsFactors = FALSE))
+
+## Eliminamos aquellos genes que no tienen nomenclatura, podríamos eliminar incluso con algún valor faltante
+genes_df <- genes_df[!is.na(genes_df$symbol) & genes_df$symbol != "", ]
+
+## Asociamos cada nombre de gen con el identificador de la base de datos ENTREZID
+map <- bitr(genes_df$symbol,
+            fromType = "SYMBOL",
+            toType   = c("ENTREZID"),
+            OrgDb    = org.Hs.eg.db)
+
+## Unimos ambos datos
+genes_mapped <- merge(genes_df, map, by.x = "symbol", by.y = "SYMBOL")
+nrow(genes_df); nrow(genes_mapped) # Comprobamos duplicados: un nombre puede mapear a >1 ENTREZ (rara vez)
+universe_entrez <- unique(map$ENTREZID) # Creamos el objeto de elementos únicos para los análisis
+
+## Over-Representation Analysis (ORA)
+
+sig_genes <- genes_mapped[genes_mapped$padj < 0.05 & abs(genes_mapped$log2FC) >= 1, ]
+length(sig_genes$ENTREZID)
+
+# ------------------------------------------------------------------------------
+### ORA: enrichGO (Biological Process)
+# ------------------------------------------------------------------------------
+ego_bp <- enrichGO(gene = sig_genes$ENTREZID,
+                   OrgDb = org.Hs.eg.db,
+                   keyType = "ENTREZID",
+                   ont = "BP",                 # BP (proceso biológico), MF (función molecular), CC (componente celular)
+                   pAdjustMethod = "BH",
+                   universe = universe_entrez,
+                   minGSSize = 10,
+                   maxGSSize = 500,
+                   pvalueCutoff = 0.05,
+                   qvalueCutoff = 0.2)
+
+e_reactome <- enrichPathway(gene = sig_genes$ENTREZID,
+                            organism = "human",
+                            pvalueCutoff = 0.05,
+                            pAdjustMethod = "BH",
+                            universe = universe_entrez,
+                            minGSSize = 10,
+                            qvalueCutoff = 0.2)
+
+dotplot(ego_bp, showCategory = 20) + ggtitle("GO:BP enrichment (ORA)") + theme(axis.text.y=element_text(size=8))
+dotplot(e_reactome, showCategory = 20) + ggtitle("Reactome enrichment (ORA)") + theme(axis.text.y=element_text(size=6))
+
+ego_bp_symbol <- setReadable(ego_bp, OrgDb = org.Hs.eg.db, keyType = "ENTREZID")
+cnetplot(ego_bp_symbol, showCategory = 6)
+
+# ------------------------------------------------------------------------------
+### GSEA
+# ------------------------------------------------------------------------------
+gene_map <- bitr(unique(res_df$Gene.Name),
+                 fromType = "SYMBOL",
+                 toType = "ENTREZID",
+                 OrgDb = org.Hs.eg.db)
+
+genes_mapped <- merge(res_df, gene_map, by.x = "Gene.Name", by.y = "SYMBOL")
+
+# Eliminamos duplicados por ENTREZID (manteniendo el valor de mayor |log2FC|)
+genes_mapped <- genes_mapped[order(abs(genes_mapped$log2FoldChange), decreasing = TRUE), ]
+genes_mapped <- genes_mapped[!duplicated(genes_mapped$ENTREZID), ]
+
+# Construimos geneList nombrado por ENTREZID
+geneList <- genes_mapped$log2FoldChange
+names(geneList) <- genes_mapped$ENTREZID
+
+set.seed(123)
+geneList <- geneList + rnorm(length(geneList), mean = 0, sd = 1e-6)
+geneList <- sort(geneList, decreasing = TRUE)
+
+
+gsea_go <- gseGO(
+  geneList = geneList,
+  OrgDb = org.Hs.eg.db,
+  ont = "BP",
+  minGSSize = 10,
+  maxGSSize = 500,
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  eps = 0,
+  nPermSimple = 10000,
+  verbose = TRUE
+)
+
+dotplot(gsea_go, showCategory = 20) +
+  ggtitle("GSEA GO:BP") +
+  theme(axis.text.y = element_text(size = 6))
+
+ridgeplot(gsea_go) + ggtitle("GSEA GO:BP") + theme(axis.text.y = element_text(size = 8))
+
+
+gsea_reactome <- gsePathway(
+  geneList = geneList,
+  organism = "human",
+  minGSSize = 10,
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  eps = 0
+)
+
+dotplot(gsea_reactome, showCategory = 20) +
+  ggtitle("GSEA Reactome") +
+  theme(axis.text.y = element_text(size = 8))
+
+ridgeplot(gsea_reactome) + ggtitle("GSEA Reactome") + theme(axis.text.y = element_text(size = 8))
+
+
+
+# ------------------------------------------------------------------------------
+# 8. Análisis adicional con biomaRt
+# ------------------------------------------------------------------------------
+
+BiocManager::install("biomaRt", force = TRUE)
+library(biomaRt)
+
+# Buscamos los nombres en el conjunto de datos en Ensembl
+ensembl <- useEnsembl(biomart="genes")
+datasets = listDatasets(ensembl)
+head(datasets)
+
+dataset_nb = grep("human", datasets$description, ignore.case=TRUE)
+dataset_nb
+
+dataset = datasets$dataset[dataset_nb]
+dataset
+
+ensembl <- useDataset(dataset=dataset, mart=ensembl)
+
+# Obtenemos las coordenadas de todos los genes
+attributes <- c("ensembl_gene_id", "chromosome_name", "start_position", "end_position")
+values <- list(ensembl_gene_id=c())
+all.genes <- getBM(attributes=attributes, values=values, mart=ensembl)
+head(all.genes)
+
+# Renombramos la columna para que coincida con la columna de nuestro dataframe inicial
+head(res_df)
+colnames(all.genes)[1] = "Gene.ID"
+head(all.genes)
+
+# Fusionamos el resultado de DESeq con las coordenadas genéticas de Ensembl
+merged_data <- merge(all.genes, res_df, by="Gene.ID")
+head(merged_data)
+
+
+
+# ------------------------------------------------------------------------------
+### BONUS desde BAM ### Cuidado!!!! son casi 50Gb de datos
+# ------------------------------------------------------------------------------
+
+library(RCurl)
+
+## Descargar los ficheros bam y bam.bai del proyecto
+
+# Carpeta de trabajo
+dir.create("bam_files", showWarnings = FALSE)
+
+# Lista de URLs de BAM y BAI del estudio ERP019920
+urls <- c(
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_1.bam",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_1.bam.bai",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_2.bam",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_2.bam.bai",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_3.bam",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_3.bam.bai",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_4.bam",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_4.bam.bai",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_5.bam",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_5.bam.bai",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_6.bam",
+  "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR173/ERR1736466/up_242_6.bam.bai"
+)
+
+for (u in urls) {
+  dest <- file.path("bam_files", basename(u))
+  download.file(u, dest, mode = "wb")
+}
+
+## Comprobamos que todos los ficheros se han descargado
+list.files("bam_files")
+
+## Descargamos la anotación de homo sapiens de GenCode (fichero de anotación gtf)
+download.file(
+  "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/gencode.v44.annotation.gtf.gz",
+  destfile = "gencode.v44.annotation.gtf.gz"
+)
+
+R.utils::gunzip("gencode.v44.annotation.gtf.gz")
+
+## Realizamos el paso de cuantificación, con featureCounts
+library(Rsubread)
+
+bam_files <- list.files("bam_files", pattern = "\\.bam$", full.names = TRUE)
+
+fc <- featureCounts(
+  files = bam_files,
+  annot.ext = "gencode.v44.annotation.gtf",
+  isGTFAnnotationFile = TRUE,
+  GTF.attrType = "gene_id",
+  useMetaFeatures = TRUE,
+  nthreads = 8
+)
+
+## Y finalmente obtenemos la matriz de conteos
+counts <- fc$counts
+colnames(counts) <- basename(bam_files)
