@@ -63,6 +63,7 @@ levels(meta$source_name_ch1)
 # Generar metadata (coldata) extrayendo información de los nombres de muestra
 coldata <- data.frame(
   Condition = meta$source_name_ch1,
+  Patient = sub(".*_(\\d+)-.*", "\\1", meta$title),
   row.names = rownames(meta)
 )
 
@@ -177,15 +178,15 @@ ggsave(
 
 dds <- DESeqDataSetFromMatrix(countData = data,
                               colData = coldata,
-                              design = ~ Condition)
+                              design = ~ Patient + Condition)
 dim(dds) # [1] 39376    54
 
 # Filtrado de genes con baja expresión (al menos 10 counts en el tamaño del grupo más pequeño)
-
-smallestGroupSize <- 16
+table(coldata$Condition)
+smallestGroupSize <- 18
 keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
 dds <- dds[keep,]
-dim(dds) # [1] 20071    54
+dim(dds) # [1] 19808    54
 
 
 ## 5. Ejecución de DESeq2 y Normalización ####
@@ -294,7 +295,7 @@ resultsNames(dds)
 # Extraer resultados crudos (PT vs PN)
 res <- results(dds, alpha=0.05, lfcThreshold = 0.585)
 summary(res)
-sum(res$padj < 0.05, na.rm=TRUE) # 792 (652 up y 140 down) *mirar final del script
+sum(res$padj < 0.05, na.rm=TRUE) # 1417 (594 up y 823 down) *mirar final del script
 
 # Encogimiento del Log Fold Change (Shrinkage) para reducir falsos positivos
 # y penalizar genes con conteos muy bajos o alta variabilidad
@@ -331,8 +332,8 @@ resLFC_filtered <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 0.585 &
                                     resLFC_ordered$padj < 0.05 & 
                                     !is.na(resLFC_ordered$padj), ]
 resLFC_filtered
-dim(resLFC_filtered)
-sum(is.na(resLFC_filtered))  #64
+dim(resLFC_filtered) # [1] 5031    6
+sum(is.na(resLFC_filtered))  #73
 
 # Extraer los Top 20 genes más significativos para visualización posterior
 top20_sig_genes <- rownames(resLFC_filtered)[1:20]
@@ -473,45 +474,45 @@ ggsave(file.path(output_dir, "Volcano_Plot.png"), plot = volcano_plot, width = 8
 
 
 
-## 0. Bloque de Exploración de Umbrales ####
+## 0. Bloque de Exploración de Umbrales #### 
 
 res05 <- results(dds, alpha=0.05)
 summary(res05)
-sum(res05$padj < 0.05, na.rm=TRUE) # 7807
+sum(res05$padj < 0.05, na.rm=TRUE) # 9562
 
 res005 <- results(dds, alpha=0.005)
 summary(res005)
-sum(res005$padj < 0.005, na.rm=TRUE) # 4327
+sum(res005$padj < 0.005, na.rm=TRUE) # 6125
 
 res001 <- results(dds, alpha=0.001)
 summary(res001)
-sum(res001$padj < 0.001, na.rm=TRUE) # 2769
+sum(res001$padj < 0.001, na.rm=TRUE) # 4425
 
 ### Foldchange de x1.5
 
 res05_05 <- results(dds, alpha=0.05, lfcThreshold = 0.585)
 summary(res05_05)
-sum(res05_05$padj < 0.05, na.rm=TRUE) # 792
+sum(res05_05$padj < 0.05, na.rm=TRUE) # 1417
 
 res005_05 <- results(dds, alpha=0.005, lfcThreshold = 0.585)
 summary(res005_05)
-sum(res005_05$padj < 0.005, na.rm=TRUE) # 389
+sum(res005_05$padj < 0.005, na.rm=TRUE) # 660
 
 res001_05 <- results(dds, alpha=0.001, lfcThreshold = 0.585)
 summary(res001_05)
-sum(res001_05$padj < 0.001, na.rm=TRUE) # 286
+sum(res001_05$padj < 0.001, na.rm=TRUE) # 440
 
 ### Foldchange de x2
 
 res05_1 <- results(dds, alpha=0.05, lfcThreshold = 1)
 summary(res05_1)
-sum(res05_1$padj < 0.05, na.rm=TRUE) # 270
+sum(res05_1$padj < 0.05, na.rm=TRUE) # 423
 
 res005_1 <- results(dds, alpha=0.005, lfcThreshold = 1)
-sum(res005_1$padj < 0.005, na.rm=TRUE) # 173
+sum(res005_1$padj < 0.005, na.rm=TRUE) # 220
 
 res001_1 <- results(dds, alpha=0.001, lfcThreshold = 1)
-sum(res001_1$padj < 0.001, na.rm=TRUE) # 111
+sum(res001_1$padj < 0.001, na.rm=TRUE) # 159
 
 
 #### Esto elimina todos los archivos descargados por AnnotationHub 

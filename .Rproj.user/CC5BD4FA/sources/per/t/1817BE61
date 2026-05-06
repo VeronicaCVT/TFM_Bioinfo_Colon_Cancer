@@ -1,0 +1,26 @@
+{
+    "id": "1817BE61",
+    "path": "~/MASTER BIOINFORMATICA/2º Cuatri/Trabajo Fin de Máster/TFM git/Scripts/de_script_GSE92914.R",
+    "project_path": "Scripts/de_script_GSE92914.R",
+    "type": "r_source",
+    "hash": "796848961",
+    "contents": "",
+    "dirty": false,
+    "created": 1778088761027.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "86,29",
+        "scrollLine": "80"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1778067141,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1778067141,
+    "read_only": false,
+    "read_only_alternatives": []
+}
