@@ -1,0 +1,484 @@
+################################################################################
+#
+#   title: "Gene-level differential expression analysis using DESeq2"
+#   author: "Verónica Cabeza de Vaca Tocino"
+#   date: "2026-04"
+#
+################################################################################
+
+## 1. Setup y Carga de librerías ####
+
+library(DESeq2)
+library(tidyverse)
+library(RColorBrewer)
+library(pheatmap)
+library(DEGreport)
+library(tximport)
+library(ggplot2)
+library(ggrepel)
+library(AnnotationHub)
+library(ensembldb)
+library(AnnotationDbi)
+
+getwd()
+
+# Crear directorio para guardar resultados si no existe
+dataset_name <- "GSE92914"
+
+output_dir <- file.path("Output", dataset_name)
+
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+
+# Definir un tema estándar para todas las gráficas (Estilo Paper)
+tema_paper <- theme_classic(base_family = "serif", base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(face = "bold", color = "black"),
+    axis.text = element_text(color = "black"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+  )
+
+## 2. Carga y Preparación de Datos ####
+
+# Carga de la matriz de conteos
+data <- read.table("Data/GSE92914/GSE92914_raw_counts_GRCh38.p13_NCBI.tsv", header = TRUE, row.names = 1)
+rownames(data) <- as.character(rownames(data))
+head(data)
+dim(data)
+
+# Carga de metadata
+meta <- read.csv("Data/GSE92914/GSE92914_full_metadata.csv", header = TRUE)
+rownames(meta) <- meta$X
+head(meta)
+dim(meta)
+
+# Generar metadata (coldata) extrayendo información de los nombres de muestra
+coldata <- data.frame(
+  Condition = substr(meta$title, nchar(meta$title) - 1, nchar(meta$title)),
+  Patient = substr(meta$title, nchar(meta$title) - 3, nchar(meta$title) - 3),
+  row.names = rownames(meta)
+)
+
+# Mantener solo las filas que NO son NM
+coldata <- coldata[coldata$Condition != "NM", ]
+coldata$Condition <- as.factor(coldata$Condition)
+coldata$Condition <- droplevels(coldata$Condition)
+levels(coldata$Condition)
+
+coldata$Patient <- as.factor(coldata$Patient)
+levels(coldata$Patient)
+
+# Ajustar el data para que sea compatible con metadata
+data <- data[, rownames(coldata)]
+
+# Relevel para que Normal (normal colon) sea la referencia basal
+coldata$Condition <- relevel(coldata$Condition, ref = "PN")
+
+# Check de seguridad: comprobar que nombres de conteos y metadata coinciden
+all(rownames(coldata) == colnames(data))
+head(coldata)
+str(coldata)
+
+############## CUIDADO! LAS MUESTRAS "4_NM" "5_NM" "6_NM" NO TIENEN PAREJA CONTROL (solucionado en linea 68)
+
+## 3. Visualización inicial previa a la construcción del objeto DESeq2 ####
+
+# Subdata
+data_subset <- data %>% 
+  dplyr::select(GSM2440321, GSM2440322, GSM2440324, GSM2440325, GSM2440327, GSM2440328)
+dim(data_subset)
+
+data_long <- data_subset %>% 
+  pivot_longer(cols = everything(), names_to = "sample", values_to = "counts")  # Transformar a formato largo para que ggplot pueda manejar todas las muestras
+head(data_long)
+
+# Histograma dataset no filtrado
+hist_plot_pre <- ggplot(data_long, aes(x = counts)) + 
+  geom_histogram(bins = 75, fill = "#3C5488", color = "black", linewidth = 0.2) + 
+  scale_x_log10() +  
+  labs(x = "Raw expression counts (log10)", y = "Number of genes") +
+  facet_wrap(~sample, ncol = 3, nrow = 2) +
+  tema_paper +
+  theme(axis.text.x = element_blank(), strip.background = element_rect(fill="gray90"))
+hist_plot_pre
+
+## Guardar Histograma
+ggsave(
+  filename = file.path(output_dir, "histograma_counts_prefiltered.png"), 
+  plot = hist_plot_pre, 
+  width = 10, 
+  height = 5, 
+  dpi = 300
+)
+
+# Principal component analysis (PCA)
+varianza_genes <- apply(data_subset, 1, var)  # varianza por FILAS (genes)
+data_filtered_PCA <- data_subset[varianza_genes > 0.1 & !is.na(varianza_genes),] # Filtrado porque PCA no admite columnas (genes) con todo 0
+dim(data_filtered_PCA)
+
+pca.results <- prcomp(t(data_filtered_PCA),       
+                      center=TRUE, 
+                      scale.=TRUE) 
+
+data.pca <- data.frame(pca.results$x)
+
+coldata_filtrado <- coldata[colnames(data_subset), ]
+
+data.pca$Sample <- rownames(data.pca)
+data.pca$Class <- coldata_filtrado$Condition
+data.pca$Class <- droplevels(data.pca$Class)
+data.pca$Patient <- coldata_filtrado$Patient
+data.pca$Patient <- droplevels(data.pca$Patient)
+str(data.pca)
+
+varianzas <- pca.results$sdev^2
+varianza.explicada <- varianzas / sum(varianzas)
+
+## PCA by Class
+PCAbyclass <- ggplot(data.pca, aes(x=PC1, y=PC2, color=Class)) +  
+  geom_point(size=4, alpha=0.8) +  
+  scale_color_manual(values=c("PN" = "#00A087", "MT" = "#F39B7F")) + 
+  labs(title= "PCA: Normal (PN) vs Tumor (MT)", 
+       x=paste0('PC1 (', round(varianza.explicada[1] * 100, 2), '%)'),                    
+       y=paste0('PC2 (', round(varianza.explicada[2] * 100, 2),'%)'),                   
+       color='Condición') +             
+  tema_paper  
+PCAbyclass
+
+ggsave(
+  filename = file.path(output_dir, "PCA_class_prefiltered.png"), 
+  plot = PCAbyclass, 
+  width = 10, 
+  height = 8, 
+  dpi = 300
+)
+
+## PCA by Patient
+PCAbypatient <- ggplot(data.pca, aes(x=PC1, y=PC2, color=Patient)) +  
+  geom_point(size=4, alpha=0.8) +  
+  scale_color_brewer(palette = "Set1") + # Paleta aMTa para papers
+  labs(title= "PCA: Variabilidad por Paciente", 
+       x=paste0('PC1 (', round(varianza.explicada[1] * 100, 2), '%)'),                    
+       y=paste0('PC2 (', round(varianza.explicada[2] * 100, 2),'%)'),                   
+       color='Paciente') +             
+  tema_paper
+PCAbypatient
+
+ggsave(
+  filename = file.path(output_dir, "PCA_patient_prefiltered.png"), 
+  plot = PCAbypatient, 
+  width = 10, 
+  height = 8, 
+  dpi = 300
+)
+
+## 4. Construcción del objeto DESeq2 y Filtrado ####
+
+dds <- DESeqDataSetFromMatrix(countData = data,
+                              colData = coldata,
+                              design = ~ Patient + Condition)
+dim(dds) # [1] 39376     9
+
+# Filtrado de genes con baja expresión (al menos 10 counts en el tamaño del grupo más pequeño)
+
+smallestGroupSize <- 3
+keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
+dds <- dds[keep,]
+dim(dds) # [1] 19185     9
+
+
+## 5. Ejecución de DESeq2 y Normalización ####
+
+# Ejecutar el pipeline principal
+dds <- DESeq(dds)
+
+# Transformación logarítmica regularizada (rlog) para Visualización (PCA, Heatmaps)
+rld <- rlog(dds, blind=FALSE) # blind=FALSE porque ya conocemos el diseño experimental
+rld_mat <- assay(rld)
+
+
+## 6. Análisis Exploratorio de Datos (EDA) y Control de Calidad ####
+
+# 6.1 Histograma de conteos transformados
+data_long_rlog <- as.data.frame(rld_mat) %>%
+  dplyr::select(GSM2440321, GSM2440322, GSM2440324, GSM2440325, GSM2440327, GSM2440328) %>% 
+  pivot_longer(everything(), names_to = "sample", values_to = "rlog_counts")
+
+hist_plot <- ggplot(data_long_rlog, aes(x = rlog_counts)) + 
+  geom_histogram(bins = 75, fill = "#3C5488", color = "black", linewidth = 0.2) + 
+  labs(x = "rlog transformed counts", y = "Number of genes") +
+  facet_wrap(~sample, ncol = 3, nrow = 2) +
+  tema_paper +
+  theme(strip.background = element_rect(fill="gray90"))
+
+hist_plot
+
+# Guardar Histograma
+ggsave(
+  filename = file.path(output_dir, "histograma_counts_filtered.png"), 
+  plot = hist_plot, 
+  width = 10, 
+  height = 5, 
+  dpi = 300
+)
+
+# 6.3 PCA (Análisis de Componentes Principales)
+
+# Filtrar muestras_LM, solo queremos ver PN vs MT
+muestras_sin_LM <- colData(dds)$Condition %in% c("PN", "MT")
+rld_sin_LM <- rld[, muestras_sin_LM]
+colData(rld_sin_LM)$Condition <- droplevels(colData(rld_sin_LM)$Condition)
+
+# PCA con los top 1500 genes más variables
+pca_plot1500 <- plotPCA(rld_sin_LM, intgroup = c("Condition"), ntop=1500) + 
+  scale_color_manual(values = c("PN" = "#00A087", "MT" = "#F39B7F"),
+                     labels = c("Normal (PN)", "Tumor (MT)")) +
+  labs(title = NULL,
+       color = "Condición:") +
+  tema_paper
+
+pca_plot1500
+
+# Guardar PCA
+ggsave(
+  filename = file.path(output_dir, "PCA_filtered.png"), 
+  plot = pca_plot1500, 
+  width = 10, 
+  height = 5, 
+  dpi = 300
+)
+
+## 7. Análisis de Expresión Diferencial (DGE) ####
+
+?results
+resultsNames(dds)
+
+# Extraer resultados crudos (MT vs PN)
+res <- results(dds, alpha=0.05, lfcThreshold = 0.585)
+summary(res)
+sum(res$padj < 0.05, na.rm=TRUE) # 144 (128 up y 16 down) *mirar final del script
+
+# Encogimiento del Log Fold Change (Shrinkage) para reducir falsos positivos
+# y penalizar genes con conteos muy bajos o alta variabilidad
+resLFC <- lfcShrink(dds, coef="Condition_MT_vs_PN", type="apeglm")
+resLFC
+
+## 7.1. AnnotationHub ####
+
+# Crear el objeto Hub (la conexión)
+ah <- AnnotationHub()
+
+# Buscamos la base de datos OrgDb de humano
+busqueda_org <- query(ah, c("Homo sapiens", "OrgDb"))
+df_org <- as.data.frame(mcols(busqueda_org))
+
+# Descargamos el objeto usando el ID que encontraste
+gdb_humano <- ah[["AH121953"]]
+
+# 3. Creamos la columna 'symbol' en tus resultados (resLFC)
+resLFC$symbol <- mapIds(gdb_humano, 
+                        keys = rownames(resLFC), 
+                        column = "SYMBOL", 
+                        keytype = "ENTREZID", # Indica que tus filas son números Entrez
+                        multiVals = "first")
+head(resLFC)
+
+#####
+# Ordenar por p-valor ajustado
+resLFC_ordered <- resLFC[order(resLFC$padj), ]
+resLFC_ordered
+
+# Filtrar genes significativos (FoldChange > 1.5x y p-adj < 0.05)
+resLFC_filtered <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 0.585 & 
+                                    resLFC_ordered$padj < 0.05 & 
+                                    !is.na(resLFC_ordered$padj), ]
+resLFC_filtered
+dim(resLFC_filtered)  # [1] 194   6
+sum(is.na(resLFC_filtered))  #4
+
+# Extraer los Top 20 genes más significativos para visualización posterior
+top20_sig_genes <- rownames(resLFC_filtered)[1:20]
+top20_sig_symbols <- resLFC_filtered$symbol[1:20]
+
+top_all_sig_genes <- rownames(resLFC_filtered)
+
+# Guardar tabla de resultados diferencialmente expresados
+write.csv(as.data.frame(resLFC_filtered), file = file.path(output_dir, "Resultados_LFC_Shrink.csv"))
+
+## 8. Visualización de Resultados de DGE ####
+
+# 8.1 PCA
+rld_top_all_sig <- rld_sin_LM[top_all_sig_genes, ]
+
+pca_plot_all_sig <- plotPCA(rld_top_all_sig, intgroup = c("Condition"), ntop=1500) + 
+  scale_color_manual(values=c("PN" = "#00A087", 
+                              "MT" = "#F39B7F")) +
+  labs(title = NULL,
+       color = "Condición:") +
+  tema_paper
+
+pca_plot_all_sig
+
+ggsave(
+  filename = file.path(output_dir, "PCA_top_all_sign_filtered.png"), 
+  plot = pca_plot_all_sig, 
+  width = 10, 
+  height = 5, 
+  dpi = 300
+)
+
+# 8.2 MA-Plot
+
+# Guardar MA-Plot usando la interfaz de base R (png/dev.off)
+png(file.path(output_dir, "MA_Plot.png"), width = 800, height = 600, res = 120)
+par(family = "serif", mar = c(5, 5, 4, 2) + 0.1) # Cambia a Times New Roman y ajusta márgenes
+plotMA(resLFC, 
+       ylim = c(-6, 6),            
+       cex = 0.6,
+       colNonSig = "gray60", colSig = "blue", colLine = "black")  
+abline(h = c(-0.585, 0.585), col = "#DC0000", lwd = 2, lty = 2) 
+dev.off()
+
+# 8.3 Boxplots de los Top 20 Genes
+top20_counts <- counts(dds, normalized = TRUE)[top20_sig_genes, ]
+top20_df <- as.data.frame(top20_counts) %>%
+  mutate(gene = top20_sig_symbols) %>%
+  pivot_longer(cols = -gene, names_to = "sample", values_to = "counts") %>%
+  left_join(as.data.frame(colData(dds)) %>% mutate(sample = rownames(.)), by = "sample")
+
+# Mantener solo PN y MT
+top20_filtered <- top20_df %>% 
+  dplyr::filter(Condition %in% c("PN", "MT"))
+
+boxplot_top20 <- ggplot(top20_filtered, aes(x = Condition, y = counts, fill = Condition)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7, color = "black") +
+  geom_jitter(width = 0.2, size = 1.5, alpha = 0.8, color = "black") +
+  facet_wrap(~ gene, scales = "free_y", ncol = 5) + 
+  scale_y_log10() + 
+  scale_fill_manual(values = c("PN" = "#3C5488", "MT" = "#DC0000")) +
+  labs(title = "Top 20 Genes: Normal (PN) vs Tumor (MT)",
+       y = "Normalized Counts (log10)",
+       x = "Condición Biológica") +
+  tema_paper +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 10, face = "italic", family = "serif"),
+        strip.background = element_rect(fill="white", color="black"))
+boxplot_top20
+
+ggsave(file.path(output_dir, "Boxplot_Top20_Genes.png"),
+       plot = boxplot_top20,
+       width = 12, height = 8, dpi = 300)
+
+# 8.4 Heatmap de los Top 20 Genes
+
+rld_sin_LM_mat <- assay(rld_sin_LM)
+head(rld_sin_LM_mat)
+
+# Extraer matriz rlog solo de genes top
+mat_filtrada <- rld_sin_LM_mat[top20_sig_genes,]
+rownames(mat_filtrada) <- top20_sig_symbols
+head(mat_filtrada)
+
+# Guardar Heatmap (pheatmap tiene argumento filename integrado)
+pheatmap(mat_filtrada, 
+         cluster_rows = TRUE, 
+         show_rownames = TRUE,
+         cluster_cols = TRUE,    
+         annotation_col = coldata,
+         main = "Top 20 Genes: PN vs MT",
+         fontfamily = "serif",     # Asegura la fuente Times New Roman
+         fontsize = 10,
+         filename = file.path(output_dir, "Heatmap_Top20_Genes.png"),
+         width = 8, height = 6)
+
+## 8.5 Volcano Plot ####
+
+# Crear una nueva columna para clasificar la significancia de cada gen
+# Umbrales: padj < 0.05 y abs(log2FoldChange) > 0.585 (1.5x)
+volcano_data <- as.data.frame(resLFC_ordered) %>%
+  mutate(
+    Significance = case_when(
+      padj < 0.05 & log2FoldChange > 0.585 ~ "Upregulated en MT",
+      padj < 0.05 & log2FoldChange < -0.585 ~ "Downregulated en MT",
+      TRUE ~ "Not Significant"
+    )
+  )
+head(volcano_data)
+
+# Filtrar los datos para aislar solo los Top 20 genes (para etiquetarlos en el gráfico)
+top_genes_volcano <- volcano_data %>% dplyr::filter(symbol %in% top20_sig_symbols)
+
+# Construir el gráfico con ggplot2
+volcano_plot <- ggplot(volcano_data, aes(x = log2FoldChange, y = -log10(padj), color = Significance)) +
+  geom_point(alpha = 0.8, size = 2) +
+  scale_color_manual(values = c("Downregulated en MT" = "#3C5488", 
+                                "Not Significant" = "gray80", 
+                                "Upregulated en MT" = "#DC0000")) +
+  geom_vline(xintercept = c(-0.585, 0.585), col = "black", linetype = "dashed", linewidth = 0.5) +
+  geom_hline(yintercept = -log10(0.05), col = "black", linetype = "dashed", linewidth = 0.5) +
+  geom_text_repel(data = top_genes_volcano, aes(label = symbol), 
+                  size = 3.5, color = "black", family = "serif", # Fuente de las etiquetas
+                  fontface = "italic", box.padding = 0.5, max.overlaps = 20) +
+  labs(title = "Volcano Plot: Tumor vs Normal",
+       x = "Log2 Fold Change",
+       y = "-Log10(Adjusted P-value)",
+       color = "") +
+  tema_paper
+
+volcano_plot
+
+ggsave(file.path(output_dir, "Volcano_Plot.png"), plot = volcano_plot, width = 8, height = 6, dpi = 300)
+
+
+
+
+
+
+## 0. Bloque de Exploración de Umbrales ####
+
+res05 <- results(dds, alpha=0.05)
+summary(res05)
+sum(res05$padj < 0.05, na.rm=TRUE) # 253
+
+res005 <- results(dds, alpha=0.005)
+summary(res005)
+sum(res005$padj < 0.005, na.rm=TRUE) # 123
+
+res001 <- results(dds, alpha=0.001)
+summary(res001)
+sum(res001$padj < 0.001, na.rm=TRUE) # 82
+
+### Foldchange de x1.5
+
+res05_05 <- results(dds, alpha=0.05, lfcThreshold = 0.585)
+summary(res05_05)
+sum(res05_05$padj < 0.05, na.rm=TRUE) # 144
+
+res005_05 <- results(dds, alpha=0.005, lfcThreshold = 0.585)
+summary(res005_05)
+sum(res005_05$padj < 0.005, na.rm=TRUE) # 72
+
+res001_05 <- results(dds, alpha=0.001, lfcThreshold = 0.585)
+summary(res001_05)
+sum(res001_05$padj < 0.001, na.rm=TRUE) # 38
+
+### Foldchange de x2
+
+res05_1 <- results(dds, alpha=0.05, lfcThreshold = 1)
+summary(res05_1)
+sum(res05_1$padj < 0.05, na.rm=TRUE) # 85
+
+res005_1 <- results(dds, alpha=0.005, lfcThreshold = 1)
+sum(res005_1$padj < 0.005, na.rm=TRUE) # 30
+
+res001_1 <- results(dds, alpha=0.001, lfcThreshold = 1)
+sum(res001_1$padj < 0.001, na.rm=TRUE) # 13
+
+
+#### Esto elimina todos los archivos descargados por AnnotationHub 
+#AnnotationHub::removeCache(ah)

@@ -155,7 +155,7 @@ PCAbypatient
 
 ggsave(
   filename = file.path(output_dir, "PCA_patient_prefiltered.png"), 
-  plot = PCAbyclass, 
+  plot = PCAbypatient, 
   width = 10, 
   height = 8, 
   dpi = 300
