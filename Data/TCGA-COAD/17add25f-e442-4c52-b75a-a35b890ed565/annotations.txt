@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+a74e611d-ff69-4292-a310-eb0c221f27c0	\N	aliquot	9f28ea30-c8b3-4664-8c65-750c452f5427	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+15fbad67-a045-44f8-a5b7-5f047b330405	\N	aliquot	9f28ea30-c8b3-4664-8c65-750c452f5427	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+df6b6dda-d9cf-5e23-a1c2-c2ce32578f3e	11689	case	05ff79c5-1127-4cac-8f4c-84089a3f2cde	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy kidney cancer. No systemic chemotherapy or radiation.

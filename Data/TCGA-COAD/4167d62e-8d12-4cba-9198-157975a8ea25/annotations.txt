@@ -1,0 +1,5 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+bb979fd8-e758-574c-8ed4-76cdafd5eb60	803	case	d4e1472a-7b5f-46f4-acb7-b961f634e28e	Prior malignancy	Notification	2010-10-28T00:00:00	Approved	No Note Specified
+cb34786e-9db4-4849-bc49-f98109454a54	\N	aliquot	0a5bfec3-a22f-4cc3-bc36-c1d3138c462f	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+2a3bd5be-4fb0-5c2d-8e5e-6c142a0945c1	803	case	d4e1472a-7b5f-46f4-acb7-b961f634e28e	Prior malignancy	Notification	2010-10-28T00:00:00	Approved	Patient had a prior malignancy of the bronchus and lung lower lobe. No radiation or systemic chemotherapy.
+5c1a86f3-bfd4-47ad-886f-c9e68dae61da	\N	aliquot	0a5bfec3-a22f-4cc3-bc36-c1d3138c462f	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

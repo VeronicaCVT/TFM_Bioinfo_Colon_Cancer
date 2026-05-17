@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+c24c0e43-7dda-5a9f-ba82-56987cede67f	11692	case	cc53bf9e-5e27-4305-a08b-552120c10aa5	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy stomach cancer.  No systemic chemotherapy or radiation.
+26d50437-2e5d-4cba-b528-ad3f56377bd2	\N	aliquot	cb1e7865-b10c-4dcb-95db-537f3c53ffb5	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+b9c14b61-f3d9-4943-81f6-6bd261693476	\N	aliquot	cb1e7865-b10c-4dcb-95db-537f3c53ffb5	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

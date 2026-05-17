@@ -311,6 +311,8 @@ sum(res$padj < 0.05, na.rm=TRUE) # 3620 (1539 up y 2081 down) *mirar final del s
 resLFC <- lfcShrink(dds, coef="Condition_tumor_vs_adjacent.normal", type="apeglm")
 resLFC
 
+resLFC$entrezid <- rownames(resLFC)
+
 ## 7.1. AnnotationHub ####
 
 # Crear el objeto Hub (la conexión)
@@ -350,6 +352,17 @@ top1500_sig_genes <- rownames(resLFC_filtered)[1:1500]
 
 # Guardar tabla de resultados diferencialmente expresados
 write.csv(as.data.frame(resLFC_filtered), file = file.path(output_dir, "Resultados_LFC_Shrink.csv"))
+
+# Filtrar genes significativos (FoldChange > 2x y p-adj < 0.05)
+resLFC_filtered_1 <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 1 & 
+                                      resLFC_ordered$padj < 0.05 & 
+                                      !is.na(resLFC_ordered$padj), ]
+
+dim(resLFC_filtered_1) # [1] 4233    7
+
+file_name <- paste0("Resultados_LFC_Shrink_", dataset_name, ".csv")
+full_path <- file.path("Output/DEGS", file_name)
+write.csv(as.data.frame(resLFC_filtered_1), file = full_path)
 
 ## 8. Visualización de Resultados de DGE ####
 

@@ -1,0 +1,26 @@
+{
+    "id": "ECD6EE03",
+    "path": "~/MASTER BIOINFORMATICA/2º Cuatri/Trabajo Fin de Máster/TFM git/Scripts/de_script_GSE104836.R",
+    "project_path": "Scripts/de_script_GSE104836.R",
+    "type": "r_source",
+    "hash": "3351634424",
+    "contents": "",
+    "dirty": false,
+    "created": 1779035099657.0,
+    "source_on_save": false,
+    "relative_order": 7,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "32,0",
+        "scrollLine": "29"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1779035995,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1779035995885,
+    "read_only": false,
+    "read_only_alternatives": []
+}

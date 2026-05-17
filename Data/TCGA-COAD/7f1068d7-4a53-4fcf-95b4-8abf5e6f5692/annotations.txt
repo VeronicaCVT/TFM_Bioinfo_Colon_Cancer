@@ -1,0 +1,5 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+61695876-b91a-5140-afd7-082d937ce5e8	20720	case	b107565b-7558-4745-952b-689178367e1c	Case submitted is found to be a recurrence after submission	Notification	2014-06-16T00:00:00	Approved	patient had a prior colon malignancy
+46e514b5-4560-57f3-9704-d3508660e1be	11680	case	b107565b-7558-4745-952b-689178367e1c	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy colon cancer. No systemic chemotherapy or radiation.
+6b830375-90cb-4406-a598-7106aa3628e8	\N	aliquot	5f664093-aa46-4016-bb6a-e45186f229eb	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+e00fd043-fd2b-41e6-a91b-a68df4a4f133	\N	aliquot	5f664093-aa46-4016-bb6a-e45186f229eb	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

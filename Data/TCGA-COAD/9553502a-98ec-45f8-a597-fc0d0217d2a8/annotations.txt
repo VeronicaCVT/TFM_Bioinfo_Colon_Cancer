@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+0b11de7b-e8fe-472c-9a23-8b6ccde7db0e	\N	aliquot	7eb74edd-0e5a-45f6-b0d0-f21c6a897ee7	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+32ecddba-d54f-4f3c-ba08-5d3f19c9878b	\N	aliquot	7eb74edd-0e5a-45f6-b0d0-f21c6a897ee7	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+de26d4a9-557e-5bb3-be76-b7b9d1866052	26866	case	d7ebd11a-1339-4b28-be90-a788d2cfa706	Item may not meet study protocol	Observation	2015-02-26T00:00:00	Approved	This case was accepted into TCGA but the pathology report is not consistent with study specific metrics. The BCR will ICD code per the pathology report, which may not match the clinical data.

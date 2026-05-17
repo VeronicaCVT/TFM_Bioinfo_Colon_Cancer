@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+dc28e9f9-7b5e-4999-89fb-d6dda3cab445	\N	aliquot	c9ebb6d9-fbc9-44ae-9964-89d7c7db66f3	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+afc9dc87-bba1-4352-8c36-46358fbe7293	\N	aliquot	c9ebb6d9-fbc9-44ae-9964-89d7c7db66f3	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+6fe43a66-cb69-58d8-9794-280fcb4dc49d	12004	case	af17788e-a562-43aa-bd36-fd3e031f483c	History of acceptable prior treatment related to a prior/other malignancy	Notification	2012-11-10T00:00:00	Approved	Prior malignancy  larnyx treated w/ radiation.

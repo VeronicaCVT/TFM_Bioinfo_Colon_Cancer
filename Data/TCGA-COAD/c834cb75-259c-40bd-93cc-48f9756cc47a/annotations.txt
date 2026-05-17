@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+7516e30d-53ac-41dd-bad6-705c509bf230	\N	aliquot	43310315-1797-422f-82d9-04be6f16225a	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+5692aa11-fbe7-5ab6-a180-fdbdba148772	11984	case	d976782c-90c1-421d-b83c-7fc2617e2709	Synchronous malignancy	Notification	2012-11-10T00:00:00	Approved	Synchronous malignancy L KIRC treated with locoregional radiation
+9cb5ff8c-7ccb-40be-81c1-1dfef05e82be	\N	aliquot	43310315-1797-422f-82d9-04be6f16225a	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

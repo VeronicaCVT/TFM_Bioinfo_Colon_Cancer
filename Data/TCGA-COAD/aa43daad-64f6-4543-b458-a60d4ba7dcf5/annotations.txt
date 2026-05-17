@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+7f866443-49b0-4382-b989-5e1549047420	\N	aliquot	2f3757e6-a1e3-4023-bc14-afeacb440a9c	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+fd1d6ad1-a328-44bd-8b51-9c9cfc6f7299	\N	aliquot	2f3757e6-a1e3-4023-bc14-afeacb440a9c	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+fad744df-b8ce-5303-b1c2-a068ed618c18	11691	case	81555ac5-9cc2-49ae-9033-657f56243f20	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy skin cancer. No systemic chemotherapy or radiation.

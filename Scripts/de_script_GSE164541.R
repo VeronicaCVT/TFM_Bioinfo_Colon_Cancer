@@ -275,7 +275,14 @@ query(ah, c("Homo sapiens", "EnsDb",
 edb <- ah[["AH89426"]]
 hubCache(ah)
 
-# Añadir columna SYMBOL a tu tabla de resultados
+# Añadir columna ENTREZID a la tabla de resultados
+resLFC$entrezid <- mapIds(edb,
+                          keys = rownames(resLFC),      # Tus ENSG...
+                          column = "ENTREZID",          # Identificador requerido para pathways
+                          keytype = "GENEID",           # Lo que tienes en los rownames
+                          multiVals = "first")
+
+# Añadir columna SYMBOL a la tabla de resultados
 resLFC$symbol <- mapIds(edb,
                         keys = rownames(resLFC),      # Tus ENSG...
                         column = "SYMBOL",            # Lo que quieres obtener
@@ -294,7 +301,7 @@ resLFC_filtered <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 0.585 &
                                     !is.na(resLFC_ordered$padj), ]
 resLFC_filtered
 dim(resLFC_filtered)
-sum(is.na(resLFC_filtered)) #9
+sum(is.na(resLFC_filtered)) #9 (symbol) y 459 (entrezid)
 
 # Extraer los Top 20 genes más significativos para visualización posterior
 top20_sig_genes <- rownames(resLFC_filtered)[1:20]
@@ -304,6 +311,18 @@ top1500_sig_genes <- rownames(resLFC_filtered)[1:1500]
 
 # Guardar tabla de resultados diferencialmente expresados
 write.csv(as.data.frame(resLFC_filtered), file = file.path(output_dir, "Resultados_LFC_Shrink.csv"))
+
+# Filtrar genes significativos (FoldChange > 2x y p-adj < 0.05)
+resLFC_filtered_1 <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 1 & 
+                                      resLFC_ordered$padj < 0.05 & 
+                                      !is.na(resLFC_ordered$padj), ]
+
+dim(resLFC_filtered_1) # [1] 3789    7
+
+
+file_name <- paste0("Resultados_LFC_Shrink_", dataset_name, ".csv")
+full_path <- file.path("Output/DEGS", file_name)
+write.csv(as.data.frame(resLFC_filtered_1), file = full_path)
 
 ## 8. Visualización de Resultados de DGE ####
 

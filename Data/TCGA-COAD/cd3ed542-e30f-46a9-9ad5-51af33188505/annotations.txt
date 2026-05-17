@@ -1,0 +1,5 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+c05fa94f-6f4e-5ecc-b6f9-45f12a7edde7	11782	case	beb63625-d9bf-4ccd-bc53-635b53d24240	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy  breast cancer treated w/ radiation
+95a5f03a-c617-449c-b5ae-5c69e47e0023	\N	aliquot	2caeddb8-47d4-4e53-bd70-17d5b2269462	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+ff428889-5197-5faa-ab8b-9578f7b11b62	12002	case	beb63625-d9bf-4ccd-bc53-635b53d24240	History of acceptable prior treatment related to a prior/other malignancy	Notification	2012-11-10T00:00:00	Approved	Prior malignancy  breast cancer treated w/ radiation
+2c2df320-1f5b-4741-9ad8-ae190070d802	\N	aliquot	2caeddb8-47d4-4e53-bd70-17d5b2269462	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

@@ -1,0 +1,5 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+de517eb6-39a5-48bc-985b-1b69dccd9dac	\N	aliquot	fc06e31c-f41b-4eb4-a161-a063eda4e713	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+e95e823f-3903-529f-87b6-b50e4034ff77	11993	case	fd16b634-2e04-44a3-862d-fb03cd73c057	History of unacceptable prior treatment related to a prior/other malignancy	Notification	2012-11-10T00:00:00	Approved	Prior malignancy  treated w/ systemic  chemotherapy.
+f7d71a87-6e02-4286-8077-443c2f6f88b5	\N	aliquot	fc06e31c-f41b-4eb4-a161-a063eda4e713	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+c4caf894-ac83-5e8f-961f-98585737a49f	11776	case	fd16b634-2e04-44a3-862d-fb03cd73c057	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy  treated w/ systemic  chemotherapy.

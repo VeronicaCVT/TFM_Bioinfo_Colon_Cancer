@@ -1,0 +1,3 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+973f13c8-740b-4dfa-9c53-51f7fd49a1e5	\N	aliquot	8875aad0-5dfd-4fad-b9ea-69fbb472845c	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+4cf50dda-69ed-472f-8f6c-72a4f77dbbba	\N	aliquot	8875aad0-5dfd-4fad-b9ea-69fbb472845c	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

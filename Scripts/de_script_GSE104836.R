@@ -146,6 +146,11 @@ keep <- rowSums(counts(dds) >= 10) >= smallestGroupSize
 dds <- dds[keep,]
 dim(dds) # [1] 23309    20
 
+# Creación universo para Enrich GO
+genes_universo_enrichGO <- as.data.frame(rownames(dds)) %>%
+  dplyr::rename(gene_id = 1)
+  
+write.csv(genes_universo_enrichGO, "Output/Interpretación/universo_genes_enrichGO.csv", row.names = FALSE)
 
 ## 5. Ejecución de DESeq2 y Normalización ####
 
@@ -227,6 +232,8 @@ sum(res$padj < 0.05, na.rm=TRUE) # 2021 (911 up y 1110 down) *mirar final del sc
 resLFC <- lfcShrink(dds, coef="Condition_colon.cancer_vs_nontumor.colon", type="apeglm")
 resLFC
 
+resLFC$entrezid <- rownames(resLFC)
+
 ## 7.1. AnnotationHub ####
 
 # Crear el objeto Hub (la conexión)
@@ -269,6 +276,17 @@ top1500_sig_genes <- rownames(resLFC_filtered)[1:1500]
 
 # Guardar tabla de resultados diferencialmente expresados
 write.csv(as.data.frame(resLFC_filtered), file = file.path(output_dir, "Resultados_LFC_Shrink.csv"))
+
+# Filtrar genes significativos (FoldChange > 1.5x y p-adj < 0.05)
+resLFC_filtered_1 <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 1 & 
+                                      resLFC_ordered$padj < 0.05 & 
+                                      !is.na(resLFC_ordered$padj), ]
+
+dim(resLFC_filtered_1) # [1] 2303    6
+
+file_name <- paste0("Resultados_LFC_Shrink_", dataset_name, ".csv")
+full_path <- file.path("Output/DEGS", file_name)
+write.csv(as.data.frame(resLFC_filtered_1), file = full_path)
 
 ## 8. Visualización de Resultados de DGE ####
 

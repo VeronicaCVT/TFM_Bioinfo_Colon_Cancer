@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+131a097f-edb1-5fa7-a5b9-634df02697fb	11687	case	4f786107-3cf5-4ab3-bba4-f399dee23f0e	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy malignant melanoma of the leg.  No systemic chemotherapy or radiation.
+03e4d1da-fe85-4acf-9732-22b6d6b62dc9	\N	aliquot	d8def559-0b6a-439f-aa27-735443e1d12c	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+303341dc-5ea4-44b9-bbf7-97ffd463d3e7	\N	aliquot	d8def559-0b6a-439f-aa27-735443e1d12c	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

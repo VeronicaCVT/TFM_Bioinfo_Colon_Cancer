@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+bba2632d-3c1c-46c4-8b9d-db6a08f1db01	\N	aliquot	b4bd08ed-0e1b-469e-a29c-fd3b536f1763	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+04afef2f-e9c2-5f70-b993-aecf96841d71	11690	case	d655bbf6-c710-411d-aff5-ceb0fb6e6680	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy prostate cancer. No systemic chemotherapy or radiation.
+23467ae7-73ed-4c56-9d8e-281012724d74	\N	aliquot	b4bd08ed-0e1b-469e-a29c-fd3b536f1763	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

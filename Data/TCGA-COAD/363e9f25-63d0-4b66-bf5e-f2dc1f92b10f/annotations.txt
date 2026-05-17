@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+8aac21d9-eda5-459e-b94f-dd1c850f9ec7	\N	aliquot	ae6c345c-c825-4925-b597-816f4819894e	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+988f282f-d912-4a98-9b9c-d6c5e95321d3	\N	aliquot	ae6c345c-c825-4925-b597-816f4819894e	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+c61015af-3ac8-5add-90a6-f085818949e4	802	case	af3a0634-4292-45bd-b948-6b6bd2d58090	Prior malignancy	Notification	2010-10-28T00:00:00	Approved	No Note Specified
