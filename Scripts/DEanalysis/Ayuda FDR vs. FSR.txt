@@ -1,0 +1,29 @@
+La clave aquí no es decir que usar el umbral dentro de `lfcShrink()` sea "malo", sino argumentar que tu elección es **más estándar, más conservadora y más compatible** con el resto de tu diseño experimental.
+
+Aquí tienes tres argumentos sólidos que puedes usar en tu defensa, ordenados de más conceptual a más técnico:
+
+## 1. El estándar científico: FDR vs. FSR
+
+El argumento principal es que tu flujo de trabajo preserva el **FDR (False Discovery Rate)** a través del p-valor ajustado (`padj`), que es el estándar de oro en transcriptómica.
+
+Si hubieras puesto el umbral dentro de `lfcShrink()`, habrías forzado a DESeq2 a cambiar la métrica a s-valores (False Sign Rate). Puedes explicarle al tribunal que, aunque el s-valor es matemáticamente válido, la inmensa mayoría de la literatura en cáncer colorrectal reporta FDR. Mantener el `padj` asegura que tus resultados sean directamente comparables con otros estudios publicados.
+
+## 2. Compatibilidad en la intersección de cohortes independientes
+
+Este punto es crucial para tu estudio. Como tu flujo de trabajo implica analizar distintos datasets por separado y luego cruzar los genes diferencialmente expresados, necesitas que la métrica de corte sea universal.
+
+* **Tu defensa:** *"Al integrar datos de múltiples cohortes independientes, la intersección es mucho más robusta si se basa en el p-valor ajustado clásico. La mayoría de las herramientas de enriquecimiento funcional (GSEA, Gene Ontology) esperan como input listas ranqueadas por p-valores o FDR, no por s-valores. Mi decisión garantiza la compatibilidad downstream."*
+
+## 3. Separación de responsabilidades en el algoritmo
+
+Demuéstrales que entiendes cómo funciona DESeq2 "por debajo del capó". Puedes explicar que el manual de Bioconductor recomienda separar el análisis en dos etapas lógicas:
+
+1. **Test estadístico puro (`results`):** Se encarga exclusivamente de responder "¿es significativo este cambio?". Aquí obtienes tu `padj`.
+2. **Estabilización de la varianza (`lfcShrink` con `res=...`):** Se encarga exclusivamente de "limpiar" el ruido en los genes de baja expresión (aplicando *apeglm*), sin alterar la estadística ya calculada.
+
+Al pasar el parámetro `res=res`, estás diciendo: *"Mantengo la rigurosidad estadística original, pero aplico el encogimiento para que mis visualizaciones y la ordenación de mis genes sean fiables y no estén sesgadas por genes ruidosos"*.
+
+---
+
+> **Una frase para rematar:**
+> *"En resumen, decidí calcular la significancia y aplicar el encogimiento en dos pasos separados (`res=...`) para mantener el control sobre la Tasa de Falsos Positivos (FDR) clásica, que es el estándar requerido para la correcta validación e intersección de las cohortes transcriptómicas del estudio."*

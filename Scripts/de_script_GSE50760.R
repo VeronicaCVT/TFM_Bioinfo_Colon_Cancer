@@ -299,7 +299,7 @@ sum(res$padj < 0.05, na.rm=TRUE) # 1417 (594 up y 823 down) *mirar final del scr
 
 # Encogimiento del Log Fold Change (Shrinkage) para reducir falsos positivos
 # y penalizar genes con conteos muy bajos o alta variabilidad
-resLFC <- lfcShrink(dds, coef="Condition_primary.colorectal.cancer_vs_normal.colon", type="apeglm")
+resLFC <- lfcShrink(dds, coef="Condition_primary.colorectal.cancer_vs_normal.colon", type="apeglm", res=res)
 resLFC
 
 resLFC$entrezid <- rownames(resLFC)
@@ -334,28 +334,17 @@ resLFC_filtered <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 0.585 &
                                     resLFC_ordered$padj < 0.05 & 
                                     !is.na(resLFC_ordered$padj), ]
 resLFC_filtered
-dim(resLFC_filtered) # [1] 5031    6
-sum(is.na(resLFC_filtered))  #73
+dim(resLFC_filtered) # [1] 1416    7
+sum(is.na(resLFC_filtered))  #20
 
 # Extraer los Top 20 genes más significativos para visualización posterior
 top20_sig_genes <- rownames(resLFC_filtered)[1:20]
 top20_sig_symbols <- resLFC_filtered$symbol[1:20]
 
-top1500_sig_genes <- rownames(resLFC_filtered)[1:1500]
+top1500_sig_genes <- rownames(resLFC_filtered) # 1416
 
 # Guardar tabla de resultados diferencialmente expresados
 write.csv(as.data.frame(resLFC_filtered), file = file.path(output_dir, "Resultados_LFC_Shrink.csv"))
-
-# Filtrar genes significativos (FoldChange > 2x y p-adj < 0.05)
-resLFC_filtered_1 <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 1 & 
-                                    resLFC_ordered$padj < 0.05 & 
-                                    !is.na(resLFC_ordered$padj), ]
-
-dim(resLFC_filtered_1) # [1] 2303    7
-
-file_name <- paste0("Resultados_LFC_Shrink_", dataset_name, ".csv")
-full_path <- file.path("Output/DEGS", file_name)
-write.csv(as.data.frame(resLFC_filtered_1), file = full_path)
 
 ## 8. Visualización de Resultados de DGE ####
 
