@@ -1,0 +1,5 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+c49019bf-0206-531d-811e-d066bb74bc03	12001	case	ac6a3df9-41b1-4e5a-a15e-f44481384c23	History of unacceptable prior treatment related to a prior/other malignancy	Notification	2012-11-10T00:00:00	Approved	Prior malignancy  breast cancer treated with system chemotherapy, hormone therapy, and radiation.
+34886c95-d117-5989-a101-363281588f26	11688	case	ac6a3df9-41b1-4e5a-a15e-f44481384c23	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy  breast cancer treated with system chemotherapy, hormone therapy, and radiation.
+a7c37215-25a4-4745-9428-9493e9d466ac	\N	aliquot	79017748-51ba-41b4-8beb-4fb4645c87f6	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+1840ec17-2e80-4133-9a2d-6eeac285b786	\N	aliquot	79017748-51ba-41b4-8beb-4fb4645c87f6	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

@@ -1,0 +1,4 @@
+"category","subcategory","ID","Description","GeneRatio","BgRatio","RichFactor","FoldEnrichment","zScore","pvalue","p.adjust","qvalue","geneID","Count"
+"Organismal Systems","Digestive system","hsa04978","Mineral absorption","7/86","55/7467",0.127272727272727,11.0505285412262,8.07491866152323,2.72457051460896e-06,0.000460452416968915,0.000433063313374688,"MT1M/MT1H/MT1G/TRPM6/MT1F/MT1E/SLC6A19",7
+"Environmental Information Processing","Signaling molecules and interaction","hsa04081","Hormone signaling","9/86","160/7467",0.05625,4.88393895348837,5.36041542944281,8.53001198120899e-05,0.00720786012412159,0.00677911478506609,"THRB/SST/GUCA2A/GCG/ADCY5/GUCA2B/PTH1R/GNG7/UCN3",9
+"Metabolism","Glycan biosynthesis and metabolism","hsa00601","Glycosphingolipid biosynthesis - lacto and neolacto series","4/86","27/7467",0.148148148148148,12.8630490956072,6.66541750638571,0.000235171164199101,0.013247975583216,0.0124599458926541,"GCNT2/B3GALT1/B3GALT5/B4GALNT2",4

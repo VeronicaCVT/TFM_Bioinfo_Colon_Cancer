@@ -1,0 +1,74 @@
+# 🧬 Resumen Maestro de Objetos en DESeq2
+
+Esta guía resume los cuatro pilares del análisis de expresión diferencial.
+
+---
+
+## 1. El Objeto `dds` (El Contenedor)
+* **Qué es:** Un objeto de clase `DESeqDataSet`. Es el "cerebro" que guarda todo lo necesario.
+* **Cómo se obtiene:** ```r
+    dds <- DESeqDataSetFromMatrix(countData = matriz, colData = metadatos, design = ~ condicion)
+    # O tras ejecutar el análisis:
+    dds <- DESeq(dds)
+    ```
+* **Objetivo:** Almacenar los conteos **brutos** (raw counts), los metadatos de las muestras y la fórmula del diseño experimental.
+* **Para qué sirve:** Es el punto de partida obligatorio. Se usa para ejecutar el modelo estadístico (`DESeq()`). **Nunca** contiene datos normalizados manualmente; él gestiona la normalización internamente.
+
+---
+
+## 2. El Objeto `rld` (La Lupa de Visualización)
+* **Qué es:** Un objeto de clase `DESeqTransform` (Regularized Logarithm).
+* **Cómo se obtiene:** ```r
+    rld <- rlog(dds, blind = FALSE)
+    ```
+* **Objetivo:** Transformar los conteos a una escala logarítmica estabilizando la varianza (homocedasticidad). Elimina el "ruido" de los genes con pocas lecturas.
+* **Para qué sirve:** **SOLO para visualización de muestras.**
+    * Hacer un **PCA** (ver si las muestras se agrupan bien).
+    * Hacer un **Heatmap** (ver patrones de colores entre pacientes/condiciones).
+    * Calcular distancias entre muestras.
+
+
+
+---
+
+## 3. El Objeto `res` (El Juez Estadístico)
+* **Qué es:** Una tabla de resultados (`DESeqResults`).
+* **Cómo se obtiene:** ```r
+    res <- results(dds, name = "Condicion_Tratado_vs_Control")
+    ```
+* **Objetivo:** Realizar la comparación estadística entre dos grupos. 
+* **Para qué sirve:** Para obtener los **p-values** y los **p-values ajustados (padj)**. Nos dice qué genes son significativos.
+    * *Limitación:* Los valores de *Log2 Fold Change* que da son "crudos" y pueden ser engañosos para genes con muy pocas lecturas.
+
+---
+
+## 4. El Objeto `resLFC` (El Refinador Biológico)
+* **Qué es:** Una tabla de resultados con el "encogimiento" (*Shrinkage*) aplicado.
+* **Cómo se obtiene:** ```r
+    resLFC <- lfcShrink(dds, coef = "nombre_del_coeficiente", type = "apeglm")
+    ```
+* **Objetivo:** Corregir (encoger hacia el cero) el *Log2 Fold Change* de los genes que tienen poca información o mucha variabilidad.
+* **Para qué sirve:** Es tu **tabla final de resultados**.
+    * **Ranking:** Para ordenar los genes de mayor a menor cambio biológico real.
+    * **MA-plot:** Para obtener un gráfico limpio sin la "nube de ruido" de los genes bajos.
+    * **Volcano Plot:** Para representar de forma honesta la magnitud del cambio.
+
+---
+
+## 💡 Cuadro Resumen: ¿Qué uso y cuándo?
+
+| Tarea | Objeto | ¿Por qué? |
+| :--- | :--- | :--- |
+| **Ejecutar el modelo** | `dds` | Contiene los conteos reales y el diseño. |
+| **Ver si PT se separa de PN** | `rld` | Estabiliza la varianza para comparar muestras. |
+| **Hacer un Heatmap** | `rld` | Permite ver niveles de expresión comparables. |
+| **Buscar genes significativos** | `res` / `resLFC` | Contienen los p-values ajustados. |
+| **Ver qué gen cambia más** | `resLFC` | El Fold Change está corregido y es más fiable. |
+| **Hacer un MA-plot** | `resLFC` | Elimina el ruido visual de los genes poco expresados. |
+
+---
+
+> **Nota final para tu TXT:** Recuerda que la progresión lógica es: 
+> `dds` (Datos) → `DESeq(dds)` (Análisis) → `rld` (Gráficos de muestras) Y `resLFC` (Gráficos de genes y tablas finales).
+
+¿Te parece que con esto ya tienes el mapa mental completo para terminar el curso?

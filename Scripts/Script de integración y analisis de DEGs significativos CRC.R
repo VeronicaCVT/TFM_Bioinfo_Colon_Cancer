@@ -1,0 +1,387 @@
+################################################################################
+#
+#   title: "SCRIPT DE INTEGRACIÓN Y META-ANÁLISIS DE DATOS RNA-seq (CRC)"
+#   author: "Verónica Cabeza de Vaca Tocino"
+#   date: "2026-05"
+#
+################################################################################
+#  Objetivo: Identificación de firmas moleculares robustas a partir de múltiples 
+#  datasets de adenocarcinoma colorrectal procesados con DESeq2.
+################################################################################
+
+# ------------------------------------------------------------------------------
+# 1. SETUP Y CARGA DE LIBRERÍAS
+# ------------------------------------------------------------------------------
+library(tidyverse)
+library(UpSetR)
+library(org.Hs.eg.db)
+library(ggplot2)
+library(grid)
+library(ggVennDiagram)
+library(clusterProfiler)
+library(enrichplot)
+
+
+# Definir un tema estándar para las gráficas
+tema_paper <- theme_classic(base_family = "serif", base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(face = "bold", color = "black"),
+    axis.text = element_text(color = "black"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+  )
+
+# ------------------------------------------------------------------------------
+# 2. DEFINICIÓN DEL ENTORNO Y BÚSQUEDA DE ARCHIVOS
+# ------------------------------------------------------------------------------
+# Listar los archivos .csv de forma recursiva
+all_files <- list.files(path = "Output", 
+                        pattern = "\\.csv$", 
+                        recursive = TRUE,   
+                        full.names = TRUE)  
+
+# Eliminar de la lista todo lo que esté en la carpeta "Interpretación"
+files_main <- all_files[!grepl("/Interpretación/", all_files)]
+
+# Asignar nombres limpios (ID del dataset)
+names(files_main) <- basename(dirname(files_main)) 
+
+# Comprobar que estÁ todo correcto
+print(files_main)
+
+# ------------------------------------------------------------------------------
+# 3. FUNCIONES DE CARGA Y PREPROCESAMIENTO
+# ------------------------------------------------------------------------------
+# Función para cargar DEGs y separarlos por direccionalidad (Up/Down)
+get_directed_degs <- function(file_path) {
+  df <- read.csv(file_path)
+  
+  # Filtrado por signo del log2FoldChange
+  up_genes <- df %>% filter(log2FoldChange > 0) %>% pull(entrezid)
+  down_genes <- df %>% filter(log2FoldChange < 0) %>% pull(entrezid)
+  
+  return(list(up = up_genes, down = down_genes))
+}
+
+# ------------------------------------------------------------------------------
+# 4. ANÁLISIS: ARCHIVOS PRINCIPALES (FoldChange > 1.5x)
+# ------------------------------------------------------------------------------
+results_main <- lapply(files_main, get_directed_degs)
+names(results_main) <- names(files_main)
+  
+list_up_main <- lapply(results_main, `[[`, "up")
+list_down_main <- lapply(results_main, `[[`, "down")
+  
+common_up_main <- Reduce(intersect, list_up_main)
+common_down_main <- Reduce(intersect, list_down_main)
+  
+cat("Genes consistentes UP:", length(common_up_main), "\n")  # 155
+cat("Genes consistentes DOWN:", length(common_down_main), "\n")  # 170 
+ 
+
+# VISUALIZACIÓN UPSET
+upset_up_main <- upset(fromList(list_up_main), 
+                       order.by = "freq", 
+                       sets.bar.color = "#E41A1C", 
+                       nsets = length(list_up_main))
+    
+upset_down_main <- upset(fromList(list_down_main), 
+                         order.by = "freq", 
+                         sets.bar.color = "#377EB8", 
+                         nsets = length(list_down_main))
+    
+print(upset_up_main)
+print(upset_down_main)
+
+png(filename = "Output/Interpretación/upset_up.png", 
+    width = 10, 
+    height = 7, 
+    units = "in", 
+    res = 300) # res = 300 equivale al dpi = 300 de ggsave
+print(upset_up_main)
+grid.text("Intersección de Genes UP-regulados (FoldChange > 1.5x)", 
+          x = 0.95, y = 0.95, just = "right", gp = gpar(fontsize = 14, fontface = "bold"))
+dev.off()
+
+png(filename = "Output/Interpretación/upset_down.png", 
+    width = 10, 
+    height = 7, 
+    units = "in", 
+    res = 300) # res = 300 equivale al dpi = 300 de ggsave
+print(upset_down_main)
+grid.text("Intersección de Genes DOWN-regulados (FoldChange > 1.5x)", 
+          x = 0.95, y = 0.95, just = "right", gp = gpar(fontsize = 14, fontface = "bold"))
+dev.off()
+
+# ------------------------------------------------------------------------------
+# 5. VISUALIZACIÓN ALTERNATIVA: DIAGRAMAS DE VENN
+# ------------------------------------------------------------------------------
+# Función auxiliar para crear y personalizar el diagrama de Venn
+plot_venn <- function(gene_list, title, color_palette, size_set = 3.5, size_label = 3) {
+  ggVennDiagram(gene_list, 
+                label_alpha = 0,
+                set_size = size_set,    # <-- Ajusta el tamaño de los nombres de los grupos
+                label_size = size_label # <-- Ajusta el tamaño de los números interiores
+  ) + 
+    scale_fill_gradientn(colors = color_palette) +
+    ggtitle(title) +
+    theme(
+      text = element_text(family = "serif"),
+      plot.title = element_text(family = "serif", hjust = 0.5, face = "bold", size = 14),
+      legend.position = "none",        # Quitamos la leyenda de conteo
+    )
+}
+
+# --- VENN PARA ARCHIVOS PRINCIPALES (FoldChange > 1.5x) ---
+# Paleta roja para genes UP
+venn_up_main <- plot_venn(list_up_main, 
+                          "Intersección de Genes UP-regulados (FoldChange > 1.5x)", 
+                          c("white", "#FEE0D2", "#FC9272", "#DE2D26"))
+  
+# Paleta azul para genes DOWN
+venn_down_main <- plot_venn(list_down_main, 
+                            "Intersección de Genes DOWN-regulados (FoldChange > 1.5x)", 
+                            c("white", "#DEEBF7", "#9ECAE1", "#3182BD"))
+
+print(venn_up_main)
+print(venn_down_main)
+
+ggsave(
+  filename = "Output/Interpretación/venn_up.png",
+  plot = venn_up_main,
+  width = 8,
+  height = 7,
+  dpi = 300
+)
+
+ggsave(
+  filename = "Output/Interpretación/venn_down.png",
+  plot = venn_down_main,
+  width = 8,
+  height = 7,
+  dpi = 300
+)
+
+# ------------------------------------------------------------------------------
+# 6. ANÁLISIS DE ENRIQUECIMIENTO FUNCIONAL (Gene Ontology)
+# ------------------------------------------------------------------------------
+# Definición del Universo (Background) para enrichGO:
+# Se ha seleccionado como universo de referencia la lista de genes del dataset GSE104836 (23309 genes). 
+#
+# Justificación: Se trato de utilizar el conjunto de genes más amplio obtenido tras el filtro de baja
+# expresión, previo a la ejecución de DESeq2 (paso ~5). Este sería el de TCGA-COAD, pero se observó una 
+# pérdida significativa de genes aptos (a 19541) debido a la traducción de ids de ENSEMBL a EntrezID, generando muchos NAs.
+# Por tanto, se optó por usar el segundo dataset con mayor número de genes aptos tras el filtrado,
+# que ademas proporcionalos EntrezID de forma nativa, evitando pérdidas de información
+my_universe <- read.csv("Output/Interpretación/universo_genes_enrichGO.csv")
+head(my_universe)
+
+# Función para realizar el enriquecimiento GO (BP+MF+CC)
+# Incluye el argumento readable=TRUE para convertir los EntrezID a Símbolos de gen en los gráficos
+run_go_enrichment <- function(gene_list, background_genes) {
+  ego <- enrichGO(
+    gene          = as.character(gene_list),
+    OrgDb         = org.Hs.eg.db,
+    keyType = "ENTREZID",
+    ont           = "ALL",         
+    pAdjustMethod = "BH",            # Corrección de Benjamini-Hochberg
+    universe = background_genes,
+    pvalueCutoff  = 0.05,
+    qvalueCutoff  = 0.05,
+    readable      = TRUE             # Traduce EntrezID a Gene Symbol
+  )
+  return(ego)
+}
+
+## ANÁLISIS: ARCHIVOS PRINCIPALES (FoldChange > 1.5x)
+ego_up_main   <- run_go_enrichment(common_up_main, my_universe)
+ego_down_main <- run_go_enrichment(common_down_main, my_universe)
+
+# ------------------------------------------------------------------------------
+# 7. VISUALIZACIÓN DEL ENRIQUECIMIENTO (Dotplots para GO ALL)
+# ------------------------------------------------------------------------------
+plot_and_save_go_all <- function(ego_obj, title, filename_out) {
+  # Al usar ont="ALL", se puede separar el dotplot por categorías (BP, CC, MF)
+  p <- dotplot(ego_obj, split="ONTOLOGY", showCategory = 10) + 
+    facet_grid(ONTOLOGY~., scale="free") +
+    ggtitle(title) +
+    tema_paper
+    
+  print(p)
+    
+  ggsave(
+    filename = filename_out,
+    plot = p,
+    width = 8,
+    height = 15,
+    dpi = 300
+    )
+}
+
+# Generar gráficos para FC > 1.5x
+plot_and_save_go_all(ego_up_main, "GO (ALL): UP-regulados (FC > 1.5x)", "Output/Interpretación/dotplot_go_up.png")
+plot_and_save_go_all(ego_down_main, "GO (ALL): DOWN-regulados (FC > 1.5x)", "Output/Interpretación/dotplot_go_down.png")
+
+# ------------------------------------------------------------------------------
+# 8. ANÁLISIS DE ENRIQUECIMIENTO DE RUTAS (KEGG)
+# ------------------------------------------------------------------------------
+# Función para realizar el enriquecimiento KEGG
+run_kegg_enrichment <- function(gene_list, background_genes) {
+  ekegg <- enrichKEGG(
+    gene          = as.character(gene_list),
+    organism      = 'hsa',             # Homo sapiens en la base de datos KEGG
+    pvalueCutoff  = 0.05,
+    qvalueCutoff  = 0.05,
+    pAdjustMethod = "BH",
+    universe      = as.character(background_genes)
+  )
+  ekegg <- setReadable(ekegg, OrgDb = org.Hs.eg.db, keyType = "ENTREZID")
+  return(ekegg)
+}
+
+## ANÁLISIS: ARCHIVOS PRINCIPALES (FoldChange > 1.5x)
+kegg_up_main   <- run_kegg_enrichment(common_up_main, my_universe$gene_id)
+kegg_down_main <- run_kegg_enrichment(common_down_main, my_universe$gene_id)
+
+# ------------------------------------------------------------------------------
+# 9. VISUALIZACIÓN DEL ENRIQUECIMIENTO KEGG (Dotplots)
+# ------------------------------------------------------------------------------
+# En KEGG no hay "sub-ontologías" como en GO, por lo que usamos un dotplot simple
+plot_and_save_kegg <- function(ekegg_obj, title, filename_out) {
+  p <- dotplot(ekegg_obj, showCategory = 15) + 
+    ggtitle(title) +
+    tema_paper
+    
+  print(p)
+    
+  ggsave(
+    filename = filename_out,
+    plot = p,
+    width = 8,
+    height = 7, 
+    dpi = 300
+  )
+}
+
+# Generar gráficos para FC > 1.5x
+plot_and_save_kegg(kegg_up_main, "KEGG: Rutas UP-reguladas (FC > 1.5x)", "Output/Interpretación/dotplot_kegg_up.png")
+plot_and_save_kegg(kegg_down_main, "KEGG: Rutas DOWN-reguladas (FC > 1.5x)", "Output/Interpretación/dotplot_kegg_down.png")
+
+# ------------------------------------------------------------------------------
+# 10. VISUALIZACIÓN AVANZADA: REDES DE INTERACCIÓN (GO y KEGG)
+# ------------------------------------------------------------------------------
+
+update_geom_defaults("text", list(family = "serif", size = 5))
+if (requireNamespace("ggrepel", quietly = TRUE)) {
+  update_geom_defaults("text_repel", list(family = "serif", size = 5))
+  update_geom_defaults("label_repel", list(family = "serif", size = 5))
+}
+
+# Función para generar y guardar Cnetplot y Emapplot
+plot_and_save_networks <- function(enrich_obj, title_prefix, file_prefix) {
+
+  # CNETPLOT (Gene-Concept Network)
+  # Relaciona las rutas biológicas más significativas con los genes que las componen.
+    p_cnet <- cnetplot(enrich_obj, showCategory = 5, foldChange = NULL) + 
+      ggtitle(paste("Cnetplot: ", title_prefix)) +
+      theme(
+        text = element_text(family = "serif"),
+        plot.title = element_text(family = "serif", hjust = 0.5, face = "bold", size = 14)
+      )
+    
+    print(p_cnet)
+    
+    ggsave(
+      filename = paste0(file_prefix, "_cnetplot.png"),
+      plot = p_cnet,
+      width = 10,
+      height = 8,
+      dpi = 300
+    )
+    
+  # EMAPPLOT (Enrichment Map)
+  # Agrupa rutas biológicas redundantes en clústeres visuales.
+  # Requiere calcular la similitud entre términos previamente.
+    enrich_sim <- pairwise_termsim(enrich_obj)
+    
+    p_emap <- emapplot(enrich_sim, showCategory = 15) +
+      ggtitle(paste("Emapplot: ", title_prefix)) +
+      theme(
+        text = element_text(family = "serif"),
+        plot.title = element_text(family = "serif", hjust = 0.5, face = "bold", size = 14)
+      )
+    
+    print(p_emap)
+    
+    ggsave(
+      filename = paste0(file_prefix, "_emapplot.png"),
+      plot = p_emap,
+      width = 10,
+      height = 8,
+      dpi = 300
+    )
+}
+
+# --- REDES PARA GENE ONTOLOGY (GO) ---
+plot_and_save_networks(
+  enrich_obj   = ego_up_main, 
+  title_prefix = "GO UP (FC > 1.5x)", 
+  file_prefix  = "Output/Interpretación/network_go_up"
+)
+
+plot_and_save_networks(
+  enrich_obj   = ego_down_main, 
+  title_prefix = "GO DOWN (FC > 1.5x)", 
+  file_prefix  = "Output/Interpretación/network_go_down"
+)
+
+# --- REDES PARA KEGG ---
+plot_and_save_networks(   # Error: la ventana gráfica tiene dimensión(es) cero
+  enrich_obj   = kegg_up_main, 
+  title_prefix = "KEGG UP (FC > 1.5x)", 
+  file_prefix  = "Output/Interpretación/network_kegg_up"
+)
+nrow(as.data.frame(kegg_up_main)) # Como solo tiene 2 rutas enriquecidas, es demasiado pequeño y desconectado para generar una red topológica
+
+plot_and_save_networks(
+  enrich_obj   = kegg_down_main, 
+  title_prefix = "KEGG DOWN (FC > 1.5x)", 
+  file_prefix  = "Output/Interpretación/network_kegg_down"
+)
+
+# ------------------------------------------------------------------------------
+# 12. EXPORTACIÓN DE RESULTADOS A TABLAS (CSV)
+# ------------------------------------------------------------------------------
+
+# --- Exportar Listas de Genes Consenso ---
+save_gene_list_csv <- function(entrez_vector, filename_out) {
+  gene_df <- bitr(as.character(entrez_vector), 
+                  fromType = "ENTREZID", 
+                  toType   = "SYMBOL", 
+                  OrgDb    = org.Hs.eg.db)
+  
+  gene_df <- gene_df[!duplicated(gene_df$ENTREZID), ]
+  
+  write.csv(gene_df, filename_out, row.names = FALSE)
+}
+
+save_gene_list_csv(common_up_main,   "Output/Interpretación/Consenso_UP.csv")
+save_gene_list_csv(common_down_main, "Output/Interpretación/Consenso_DOWN.csv")
+
+# --- Función para exportar resultados de Enriquecimiento ---
+save_enrichment_csv <- function(enrich_obj, filename_out) {
+  write.csv(as.data.frame(enrich_obj), filename_out, row.names = FALSE)
+}
+
+# --- Exportar Resultados de Gene Ontology (GO ALL) ---
+save_enrichment_csv(ego_up_main,   "Output/Interpretación/Tabla_GO_UP.csv")
+save_enrichment_csv(ego_down_main, "Output/Interpretación/Tabla_GO_DOWN.csv")
+
+# --- Exportar Resultados de KEGG ---
+save_enrichment_csv(kegg_up_main,   "Output/Interpretación/Tabla_KEGG_UP.csv")
+save_enrichment_csv(kegg_down_main, "Output/Interpretación/Tabla_KEGG_DOWN.csv")
+
+
+

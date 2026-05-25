@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+c40830a6-ac8f-4adf-a9c2-7a4788dd6be8	\N	aliquot	210a8b68-3413-4b76-94c4-d33559fac3a0	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+29642db6-5d00-5095-9b37-3849f76d54ae	11693	case	c1e141af-bdd1-4176-8c0e-cf1ab0c1d9d3	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy oral cancer. No systemic chemotherapy or radiation.
+a07a7e9e-a0cc-40a1-a4a6-b5e817012f45	\N	aliquot	210a8b68-3413-4b76-94c4-d33559fac3a0	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

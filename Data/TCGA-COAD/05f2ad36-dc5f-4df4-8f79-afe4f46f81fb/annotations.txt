@@ -1,0 +1,5 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+76c644c6-fcc4-51f1-8711-4936d314c46c	11989	case	1ad0b9b9-7ded-4281-b114-9dcc6138c037	History of acceptable prior treatment related to a prior/other malignancy	Notification	2012-11-10T00:00:00	Approved	Prior malignancy  testicular cancer treated w/ radiation
+855cf8f3-71cd-4155-94a2-9798857c7230	\N	aliquot	276eaf0e-6da5-430a-8e6b-5dadc4fd24a6	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+2e1c5571-f197-5b23-b2f6-3c291d5379d7	11772	case	1ad0b9b9-7ded-4281-b114-9dcc6138c037	Prior malignancy	Notification	2012-10-31T00:00:00	Approved	Prior malignancy  testicular cancer treated w/ radiation
+0f03f1b1-0768-4870-ad9c-5797f2c90fc7	\N	aliquot	276eaf0e-6da5-430a-8e6b-5dadc4fd24a6	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.

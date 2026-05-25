@@ -1,0 +1,4 @@
+id	submitter_id	entity_type	entity_id	category	classification	created_datetime	status	notes
+c63087bb-84c6-535b-abf6-e90243476849	11998	case	2c9996bb-af6e-4424-881a-e81b9c9aeb78	Synchronous malignancy	Notification	2012-11-10T00:00:00	Approved	Synchronous malignancy of the colon
+7f36754c-c6de-4026-8e5c-a2a4d69b1dee	\N	aliquot	fc7a6327-762f-4e60-aaac-892366afd3dc	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
+c6371d0f-4998-47ae-9f22-b3213068eb69	\N	aliquot	fc7a6327-762f-4e60-aaac-892366afd3dc	General	Notification	2022-08-08T12:41:35.180307-05:00	Approved	Some RNA-Seq file types may be missing from this aliquot due to it being processed with single-end sequencing.
