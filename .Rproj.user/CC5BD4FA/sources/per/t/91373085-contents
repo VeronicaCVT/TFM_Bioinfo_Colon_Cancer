@@ -325,20 +325,30 @@ resLFC_df <- resLFC_df %>%
 head(resLFC_df)
 
 
-## 7.2. Inclusión de nomenclatura entrezid ####
+## 7.2. AnnotationHub para TCGA-COAD ####
 
-# PASO CLAVE: Eliminar la versión (GENCODE v36) del ID de Ensembl
-# Esto transforma "ENSG00000141510.17" en "ENSG00000141510" para poder cruzarlo
+ah <- AnnotationHub()
+
+# Buscamos la base de datos de humano. 
+busqueda_org_tcga <- query(ah, c("Homo sapiens", "EnsDb"))
+df_org_tcga <- as.data.frame(mcols(busqueda_org_tcga))
+View(df_org_tcga)
+
+# Descargamos el objeto de Ensembl 103 (equivalente a GENCODE v36 para TCGA-COAD)
+gdb_tcga <- ah[["AH89426"]]
+
+# Inclusión de nomenclatura entrezid ####
+# PASO CLAVE: Eliminar la versión (GENCODE v36) del ID de Ensembl -> Esto transforma "ENSG00000141510.17" en "ENSG00000141510" para poder cruzarlo
 resLFC_df <- resLFC_df %>%
   mutate(gene_id_limpio = str_remove(gene_id, "\\..*$"))
 
-# Mapear de Ensembl a Entrez ID utilizando org.Hs.eg.db
+# Mapear de Ensembl a Entrez ID utilizando la base de datos de AnnotationHub específica para TCGA
 resLFC_df$entrezid <- mapIds(
-  x = org.Hs.eg.db,
+  x = gdb_tcga,              # Usamos el objeto descargado para TCGA-COAD en lugar del estático org.Hs.eg.db
   keys = resLFC_df$gene_id_limpio,
-  column = "ENTREZID",     # Lo que queremos obtener
-  keytype = "ENSEMBL",     # Lo que le pasamos
-  multiVals = "first"      # Si hay colisiones (1 a varios), nos quedamos con el primero
+  column = "ENTREZID",       # Lo que queremos obtener
+  keytype = "GENEID",       # Lo que le pasamos
+  multiVals = "first"        # Si hay colisiones (1 a varios), nos quedamos con el primero
 )
 
 rownames(resLFC_df) <- resLFC_df$gene_id
@@ -379,7 +389,8 @@ resLFC_filtered <- resLFC_ordered[abs(resLFC_ordered$log2FoldChange) > 0.585 &
                                     !is.na(resLFC_ordered$padj), ]
 resLFC_filtered
 dim(resLFC_filtered) # [1] 8341    7
-
+sum(is.na(resLFC_filtered$entrezid)) #2398
+sum(is.na(resLFC_filtered$symbol)) #0
 
 # Extraer los Top 20 genes más significativos para visualización posterior
 top20_sig_genes <- rownames(resLFC_filtered)[1:20]

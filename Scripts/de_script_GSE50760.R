@@ -309,18 +309,18 @@ resLFC$entrezid <- rownames(resLFC)
 # Crear el objeto Hub (la conexión)
 ah <- AnnotationHub()
 
-# Buscamos la base de datos OrgDb de humano
+# Buscar la base de datos OrgDb de humano
 busqueda_org <- query(ah, c("Homo sapiens", "OrgDb"))
 df_org <- as.data.frame(mcols(busqueda_org))
-
-# Descargamos el objeto usando el ID que encontraste
+View(df_org)
+# Descargamr el objeto usando el ID
 gdb_humano <- ah[["AH121953"]]
 
-# 3. Creamos la columna 'symbol' en tus resultados (resLFC)
+# Crear la columna 'symbol' en los resultados (resLFC)
 resLFC$symbol <- mapIds(gdb_humano, 
                         keys = rownames(resLFC), 
                         column = "SYMBOL", 
-                        keytype = "ENTREZID", # Indica que tus filas son números Entrez
+                        keytype = "ENTREZID",
                         multiVals = "first")
 head(resLFC)
 
