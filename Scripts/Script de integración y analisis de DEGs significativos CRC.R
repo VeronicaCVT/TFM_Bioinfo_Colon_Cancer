@@ -76,7 +76,8 @@ list_down_main <- lapply(results_main, `[[`, "down")
   
 common_up_main <- Reduce(intersect, list_up_main)
 common_down_main <- Reduce(intersect, list_down_main)
-  
+common_genes <- c(common_down_main, common_up_main)
+
 cat("Genes consistentes UP:", length(common_up_main), "\n")  # 155
 cat("Genes consistentes DOWN:", length(common_down_main), "\n")  # 170 
  
@@ -369,6 +370,7 @@ save_gene_list_csv <- function(entrez_vector, filename_out) {
 
 save_gene_list_csv(common_up_main,   "Output/Interpretación/Consenso_UP.csv")
 save_gene_list_csv(common_down_main, "Output/Interpretación/Consenso_DOWN.csv")
+save_gene_list_csv(common_genes,   "Output/Interpretación/Consenso_GENES.csv")
 
 # --- Función para exportar resultados de Enriquecimiento ---
 save_enrichment_csv <- function(enrich_obj, filename_out) {
