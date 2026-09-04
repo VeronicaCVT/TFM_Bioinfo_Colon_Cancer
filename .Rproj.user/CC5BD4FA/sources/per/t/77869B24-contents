@@ -57,9 +57,11 @@ dim(meta) # 144  72
 
 # Identificar las muestras comunes
 muestras_comunes <- intersect(rownames(meta), colnames(data))
+length(muestras_comunes)
 
 # Filtrar 'meta' para quedarnos solo con esas muestras
 meta_filtrada <- meta[muestras_comunes, ]
+table(substr(meta_filtrada$title, 2, 3))
 
 # Generar metadata (coldata) extrayendo información de los nombres de muestra
 coldata <- data.frame(

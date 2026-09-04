@@ -205,20 +205,28 @@ ego_down_main <- run_go_enrichment(common_down_main, my_universe)
 # ------------------------------------------------------------------------------
 plot_and_save_go_all <- function(ego_obj, title, filename_out) {
   # Al usar ont="ALL", se puede separar el dotplot por categorías (BP, CC, MF)
-  p <- dotplot(ego_obj, split="ONTOLOGY", showCategory = 10) + 
+  p <- dotplot(ego_obj, split="ONTOLOGY", showCategory = 10, label_format = 50) +
     facet_grid(ONTOLOGY~., scale="free") +
     ggtitle(title) +
-    tema_paper
+    tema_paper +
+    theme(
+      axis.text.y   = element_text(size = 12), # Términos de la izquierda (los que querías ampliar)
+      axis.text.x   = element_text(size = 11), # Números del eje X (GeneRatio)
+      axis.title.x  = element_text(size = 12), # Título del eje X ("GeneRatio")
+      legend.text   = element_text(size = 10), # Texto dentro de la leyenda (valores de p.adjust y Count)
+      legend.title  = element_text(size = 11), # Títulos de la leyenda ("p.adjust" y "Count")
+      strip.text.y  = element_text(size = 12)  # Etiquetas laterales de los paneles (BP, CC, MF)
+    )
     
   print(p)
     
-  ggsave(
+ggsave(
     filename = filename_out,
     plot = p,
-    width = 8,
-    height = 15,
+    width = 10,     # Aumentado de 8 a 13 para dar espacio horizontal a los textos
+    height = 14,    # Reducido de 15 a 11 para compactar la dimensión vertical
     dpi = 300
-    )
+  )
 }
 
 # Generar gráficos para FC > 1.5x
@@ -251,9 +259,16 @@ kegg_down_main <- run_kegg_enrichment(common_down_main, my_universe$gene_id)
 # ------------------------------------------------------------------------------
 # En KEGG no hay "sub-ontologías" como en GO, por lo que usamos un dotplot simple
 plot_and_save_kegg <- function(ekegg_obj, title, filename_out) {
-  p <- dotplot(ekegg_obj, showCategory = 15) + 
+  p <- dotplot(ekegg_obj, showCategory = 15, label_format = 50) + 
     ggtitle(title) +
-    tema_paper
+    tema_paper +
+    theme(
+      axis.text.y   = element_text(size = 12), # Rutas de la izquierda
+      axis.text.x   = element_text(size = 11), # Números del eje X
+      axis.title.x  = element_text(size = 12), # Título del eje X
+      legend.text   = element_text(size = 10), # Texto de la leyenda
+      legend.title  = element_text(size = 11)  # Título de la leyenda
+    )
     
   print(p)
     
@@ -261,7 +276,7 @@ plot_and_save_kegg <- function(ekegg_obj, title, filename_out) {
     filename = filename_out,
     plot = p,
     width = 8,
-    height = 7, 
+    height = 4, 
     dpi = 300
   )
 }
@@ -275,7 +290,8 @@ plot_and_save_kegg(kegg_down_main, "KEGG: Rutas DOWN-reguladas (FC > 1.5x)", "Ou
 # ------------------------------------------------------------------------------
 
 update_geom_defaults("text", list(family = "serif", size = 5))
-if (requireNamespace("ggrepel", quietly = TRUE)) {
+
+if (require("ggrepel", quietly = TRUE)) {
   update_geom_defaults("text_repel", list(family = "serif", size = 5))
   update_geom_defaults("label_repel", list(family = "serif", size = 5))
 }
